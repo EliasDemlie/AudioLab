@@ -1,41 +1,24 @@
-import 'upload_status.dart';
-
-/// Contacts backup status as reported by the native contacts module.
+/// Local contacts backup information reported by the native contacts module.
 class ContactsBackupState {
   const ContactsBackupState({
-    this.configured = false,
     this.permissionGranted = false,
-    this.lastSuccessAt,
-    this.latest,
+    this.latestAt,
     this.contactCount,
   });
 
   factory ContactsBackupState.fromMap(Map<dynamic, dynamic> map) {
-    final lastSuccess = map['lastSuccessAtMillis'] as int?;
     final latest = map['latest'] as Map?;
+    final modifiedAt = latest?['modifiedAtMillis'] as int?;
     return ContactsBackupState(
-      configured: map['configured'] as bool? ?? false,
       permissionGranted: map['permissionGranted'] as bool? ?? false,
-      lastSuccessAt: lastSuccess == null
+      latestAt: modifiedAt == null
           ? null
-          : DateTime.fromMillisecondsSinceEpoch(lastSuccess),
-      latest: latest == null ? null : UploadStatus.fromMap(latest),
+          : DateTime.fromMillisecondsSinceEpoch(modifiedAt),
       contactCount: latest?['contactCount'] as int?,
     );
   }
 
-  /// Telegram bot token and chat were provided at build time.
-  final bool configured;
   final bool permissionGranted;
-  final DateTime? lastSuccessAt;
-
-  /// Upload of the most recent backup file.
-  final UploadStatus? latest;
-
-  /// Contacts in the most recent backup file.
+  final DateTime? latestAt;
   final int? contactCount;
-
-  bool get isBusy =>
-      latest?.state == UploadState.pending ||
-      latest?.state == UploadState.uploading;
 }
