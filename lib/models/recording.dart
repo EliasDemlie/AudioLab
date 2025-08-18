@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'upload_status.dart';
-
 /// What a list entry is: an audio recording or an exported contacts backup.
 enum RecordingKind {
   audio,
@@ -20,12 +18,10 @@ class Recording {
     this.kind = RecordingKind.audio,
     this.duration,
     this.contactCount,
-    this.upload,
   });
 
   factory Recording.fromMap(Map<dynamic, dynamic> map) {
     final durationMillis = map['durationMillis'] as int?;
-    final upload = map['upload'] as Map?;
     return Recording(
       file: File(map['path'] as String),
       createdAt: DateTime.fromMillisecondsSinceEpoch(
@@ -37,7 +33,6 @@ class Recording {
           ? null
           : Duration(milliseconds: durationMillis),
       contactCount: map['contactCount'] as int?,
-      upload: upload == null ? null : UploadStatus.fromMap(upload),
     );
   }
 
@@ -52,18 +47,5 @@ class Recording {
   /// Number of contacts in a contacts backup; null for an audio recording.
   final int? contactCount;
 
-  /// Telegram backup status; null if the file was never queued.
-  final UploadStatus? upload;
-
   String get name => file.uri.pathSegments.last;
-
-  Recording copyWith({UploadStatus? upload}) => Recording(
-    file: file,
-    createdAt: createdAt,
-    sizeBytes: sizeBytes,
-    kind: kind,
-    duration: duration,
-    contactCount: contactCount,
-    upload: upload ?? this.upload,
-  );
 }
