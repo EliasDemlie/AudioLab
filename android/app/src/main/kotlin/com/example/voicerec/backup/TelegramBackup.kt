@@ -83,11 +83,15 @@ object TelegramBackup {
     fun uploadsWithPrefix(context: Context, prefix: String): List<UploadRecord> =
         store(context).findByPrefix(prefix)
 
-    fun processor(context: Context) = UploadProcessor(
+    fun processor(context: Context, source: UploadSource? = null) = UploadProcessor(
         store = store(context),
         sender = TelegramClient(BuildConfig.TELEGRAM_BOT_TOKEN, BuildConfig.TELEGRAM_CHAT_ID),
         captionFor = ::caption,
+        source = source,
     )
+
+    /** The shared upload queue, for features that manage their own scheduling (photos). */
+    fun uploadStore(context: Context): SqliteUploadStore = store(context)
 
     private fun schedule(context: Context, recordingId: String) {
         val request = OneTimeWorkRequest.Builder(TelegramUploadWorker::class.java)

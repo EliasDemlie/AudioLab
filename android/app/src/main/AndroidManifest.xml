@@ -3,6 +3,12 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Only requested when the user taps "Back Up Contacts Now". -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Only requested when the user turns on Automatic Photo Backup. Images only. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

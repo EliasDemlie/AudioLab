@@ -13,8 +13,10 @@ class UploadProcessor(
     private val maxAttempts: Int = DEFAULT_MAX_ATTEMPTS,
     private val maxFileBytes: Long = TelegramClient.MAX_FILE_BYTES,
     private val captionFor: (File) -> String = { it.nameWithoutExtension },
+    private val source: UploadSource? = null,
 ) {
-    enum class Outcome { DONE, RETRY, FAILED }
+    /** [BLOCKED]: uploads aren't currently allowed; the item stays pending and nothing should be retried. */
+    enum class Outcome { DONE, RETRY, FAILED, BLOCKED }
 
     fun process(recordingId: String): Outcome {
         // Deleted by the user since it was queued: nothing to do.
@@ -22,7 +24,25 @@ class UploadProcessor(
         // Never send twice: a retried or duplicated job finds the saved Telegram result.
         if (record.status == UploadStatus.UPLOADED) return Outcome.DONE
 
-        val file = File(record.filePath)
+        val resolved = source?.takeIf { it.handles(record) }?.open(record)
+            ?: UploadSource.Resolved.Ready(File(record.filePath))
+        return when (resolved) {
+            is UploadSource.Resolved.Blocked -> {
+                store.markPending(recordingId, resolved.message)
+                Outcome.BLOCKED
+            }
+            is UploadSource.Resolved.Unavailable -> fail(recordingId, resolved.message)
+            is UploadSource.Resolved.Ready ->
+                try {
+                    upload(record, resolved.file, resolved.caption)
+                } finally {
+                    resolved.release()
+                }
+        }
+    }
+
+    private fun upload(record: UploadRecord, file: File, caption: String?): Outcome {
+        val recordingId = record.recordingId
         if (!file.isFile) return fail(recordingId, "The recording file no longer exists.")
         if (file.length() > maxFileBytes) {
             return fail(
@@ -40,7 +60,7 @@ class UploadProcessor(
         val attempt = record.attempts + 1
 
         var reported = 0f
-        val result = sender.send(file, captionFor(file)) { progress ->
+        val result = sender.send(file, caption ?: captionFor(file)) { progress ->
             if (progress - reported >= PROGRESS_STEP) {
                 reported = progress
                 store.updateProgress(recordingId, progress)
