@@ -107,13 +107,22 @@ class _RecorderScreenState extends State<RecorderScreen> {
               ),
               const Divider(height: 1),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Recordings',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Recordings',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    Text(
+                      '${_controller.recordings.length}',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Expanded(
@@ -121,6 +130,7 @@ class _RecorderScreenState extends State<RecorderScreen> {
                   recordings: _controller.recordings,
                   onShare: _controller.share,
                   onDelete: _confirmDelete,
+                  onRefresh: _controller.refreshRecordings,
                 ),
               ),
             ],
