@@ -91,7 +91,6 @@ object RecordingFiles {
                     "sizeBytes" to file.length(),
                     "modifiedAtMillis" to file.lastModified(),
                     "durationMillis" to durationMillis(file),
-                    "kind" to "recording",
                 )
             }
 
