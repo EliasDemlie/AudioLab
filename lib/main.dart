@@ -15,14 +15,27 @@ class VoiceRecApp extends StatelessWidget {
       title: 'Voice Recorder',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF20D4CF),
+          brightness: Brightness.light,
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo,
+          seedColor: const Color(0xFF20D4CF),
           brightness: Brightness.dark,
         ),
+        scaffoldBackgroundColor: const Color(0xFF061322),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF061322),
+          surfaceTintColor: Colors.transparent,
+        ),
+        cardTheme: const CardThemeData(
+          color: Color(0xFF0B1D30),
+          surfaceTintColor: Colors.transparent,
+        ),
       ),
+      themeMode: ThemeMode.dark,
       home: const RecorderScreen(),
     );
   }
