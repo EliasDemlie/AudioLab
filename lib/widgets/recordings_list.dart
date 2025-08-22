@@ -34,81 +34,64 @@ class RecordingsList extends StatelessWidget {
       onRefresh: onRefresh,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+        padding: const EdgeInsets.fromLTRB(16, 0, 12, 20),
         itemCount: recordings.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        separatorBuilder: (_, _) => Divider(
+          height: 1,
+          indent: 58,
+          color: Theme.of(context).colorScheme.outlineVariant
+              .withValues(alpha: 0.35),
+        ),
         itemBuilder: (context, index) {
           final recording = recordings[index];
           final colors = Theme.of(context).colorScheme;
 
-          return Card.outlined(
-            margin: EdgeInsets.zero,
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              isThreeLine: true,
-              contentPadding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-              leading: CircleAvatar(
-                backgroundColor: colors.secondaryContainer,
-                foregroundColor: colors.onSecondaryContainer,
-                child: const Icon(Icons.graphic_eq),
-              ),
-              title: Text(
-                'Voice recording',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 5),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      recording.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: [
-                        _FileDetail(
-                          icon: Icons.schedule_outlined,
-                          label: formatDateTime(recording.createdAt),
-                        ),
-                        if (recording.duration != null)
-                          _FileDetail(
-                            icon: Icons.timelapse_outlined,
-                            label: formatDuration(recording.duration!),
-                          ),
-                        _FileDetail(
-                          icon: Icons.storage_outlined,
-                          label: formatBytes(recording.sizeBytes),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+          return ListTile(
+            contentPadding: const EdgeInsets.only(left: 2, right: 4),
+            minVerticalPadding: 10,
+            leading: Icon(
+              Icons.graphic_eq_rounded,
+              color: colors.primary,
+              size: 27,
+            ),
+            title: Text(
+              recording.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 3,
                 children: [
-                  IconButton(
-                    tooltip: 'Share ${recording.name}',
-                    icon: const Icon(Icons.share_outlined),
-                    onPressed: () => onShare(recording),
+                  _FileDetail(
+                    icon: Icons.schedule_outlined,
+                    label: formatDateTime(recording.createdAt),
                   ),
-                  IconButton(
-                    tooltip: 'Delete ${recording.name}',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => onDelete(recording),
+                  if (recording.duration != null)
+                    _FileDetail(
+                      icon: Icons.timelapse_outlined,
+                      label: formatDuration(recording.duration!),
+                    ),
+                  _FileDetail(
+                    icon: Icons.storage_outlined,
+                    label: formatBytes(recording.sizeBytes),
                   ),
                 ],
               ),
+            ),
+            trailing: PopupMenuButton<String>(
+              tooltip: 'Recording actions',
+              onSelected: (action) {
+                if (action == 'share') onShare(recording);
+                if (action == 'delete') onDelete(recording);
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'share', child: Text('Share')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
             ),
           );
         },
