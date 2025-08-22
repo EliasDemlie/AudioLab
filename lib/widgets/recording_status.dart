@@ -20,57 +20,35 @@ class RecordingStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final isRecording = status == RecorderStatus.recording;
-    final accent = switch (status) {
-      RecorderStatus.recording => colors.error,
-      RecorderStatus.paused => colors.tertiary,
-      _ => colors.primary,
-    };
-
     return Column(
       children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: accent.withValues(alpha: 0.12),
-            border: Border.all(color: accent, width: isRecording ? 4 : 2),
-          ),
-          child: Icon(
-            switch (status) {
-              RecorderStatus.recording => Icons.mic,
-              RecorderStatus.paused => Icons.pause,
-              _ => Icons.mic_none,
-            },
-            size: 56,
-            color: accent,
+        Text(
+          switch (status) {
+            RecorderStatus.recording => 'Recording',
+            RecorderStatus.paused => 'Recording Paused',
+            RecorderStatus.stopping => 'Saving Recording',
+            RecorderStatus.idle => 'Ready to Record',
+          },
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+            letterSpacing: 0.2,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 7),
         Text(
           formatDuration(elapsed),
-          style: theme.textTheme.displaySmall?.copyWith(
+          style: theme.textTheme.displayMedium?.copyWith(
+            fontSize: 40,
+            fontWeight: FontWeight.w300,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          switch (status) {
-            RecorderStatus.recording => 'Recording… you can close the app',
-            RecorderStatus.paused => 'Paused',
-            RecorderStatus.stopping => 'Saving…',
-            RecorderStatus.idle => 'Press Start to record',
-          },
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colors.onSurfaceVariant,
-          ),
-        ),
         if (micSilenced) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Text(
-            'Microphone is in use by another app',
+            'Microphone is being used by another app',
             style: theme.textTheme.bodyMedium?.copyWith(color: colors.error),
           ),
         ],
