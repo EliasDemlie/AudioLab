@@ -19,7 +19,10 @@ class RecorderController extends ChangeNotifier {
 
   StreamSubscription<RecorderState>? _stateSub;
   Timer? _ticker;
+  Timer? _levelTicker;
   bool _disposed = false;
+  final ValueNotifier<double> audioLevel = ValueNotifier(0);
+  final List<Duration> _bookmarks = [];
 
   RecorderState _state = const RecorderState.idle();
   List<Recording> _recordings = const [];
@@ -30,6 +33,7 @@ class RecorderController extends ChangeNotifier {
   bool get micSilenced => _state.micSilenced;
   Duration get elapsed => _state.elapsedAt(DateTime.now());
   List<Recording> get recordings => _recordings;
+  List<Duration> get bookmarks => List.unmodifiable(_bookmarks);
 
   /// True while a request is in flight (e.g. permission dialog open).
   bool get isBusy => _isBusy;
@@ -52,13 +56,24 @@ class RecorderController extends ChangeNotifier {
     await refreshRecordings();
   }
 
-  Future<void> start() => _run(_service.start);
+  Future<void> start() async {
+    _bookmarks.clear();
+    await _run(_service.start);
+  }
 
   Future<void> pause() => _run(_service.pause);
 
   Future<void> resume() => _run(_service.resume);
 
   Future<void> stop() => _run(_service.stop);
+
+  void addBookmark() {
+    if (status != RecorderStatus.recording && status != RecorderStatus.paused) {
+      return;
+    }
+    _bookmarks.add(elapsed);
+    notifyListeners();
+  }
 
   Future<void> refreshRecordings() async {
     try {
@@ -97,14 +112,31 @@ class RecorderController extends ChangeNotifier {
         const Duration(seconds: 1),
         (_) => notifyListeners(),
       );
+      _levelTicker ??= Timer.periodic(
+        const Duration(milliseconds: 80),
+        (_) => _readAudioLevel(),
+      );
     } else {
       _ticker?.cancel();
       _ticker = null;
+      _levelTicker?.cancel();
+      _levelTicker = null;
+      audioLevel.value = 0;
     }
     notifyListeners();
 
     // A recording just finished (from the app or the notification).
     if (wasActive && !state.isActive) refreshRecordings();
+  }
+
+  Future<void> _readAudioLevel() async {
+    try {
+      final peak = await _service.readPeakAmplitude();
+      if (_disposed || status != RecorderStatus.recording) return;
+      audioLevel.value = (peak / 32767).clamp(0.0, 1.0);
+    } on PlatformException {
+      // Meter failures must never interrupt the recording itself.
+    }
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -127,6 +159,8 @@ class RecorderController extends ChangeNotifier {
     _disposed = true;
     _stateSub?.cancel();
     _ticker?.cancel();
+    _levelTicker?.cancel();
+    audioLevel.dispose();
     _errors.close();
     super.dispose();
   }
