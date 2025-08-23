@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
+import 'recording_saved_screen.dart';
 import '../widgets/record_controls.dart';
 import '../widgets/recording_status.dart';
 import '../widgets/recordings_list.dart';
@@ -64,6 +65,39 @@ class _RecorderScreenState extends State<RecorderScreen> {
     if (confirmed ?? false) await _controller.delete(recording);
   }
 
+  Future<void> _stopAndSave() async {
+    final recording = await _controller.stopAndWait();
+    if (recording == null || !mounted) return;
+    final colors = Theme.of(context).colorScheme;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: colors.primary,
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: colors.onPrimary),
+              const SizedBox(width: 12),
+              Text(
+                'Recording saved',
+                style: TextStyle(color: colors.onPrimary),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+
+  Future<void> _openRecording(Recording recording) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            RecordingSavedScreen(recording: recording, controller: _controller),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,7 +135,7 @@ class _RecorderScreenState extends State<RecorderScreen> {
                       onStart: _controller.start,
                       onPause: _controller.pause,
                       onResume: _controller.resume,
-                      onStop: _controller.stop,
+                      onStop: _stopAndSave,
                     ),
                     const SizedBox(height: 6),
                     Row(
@@ -160,6 +194,7 @@ class _RecorderScreenState extends State<RecorderScreen> {
               Expanded(
                 child: RecordingsList(
                   recordings: _controller.recordings,
+                  onOpen: _openRecording,
                   onShare: _controller.share,
                   onDelete: _confirmDelete,
                   onRefresh: _controller.refreshRecordings,

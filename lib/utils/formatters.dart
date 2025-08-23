@@ -20,3 +20,7 @@ String formatBytes(int bytes) {
 String formatDateTime(DateTime date) =>
     '${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)} '
     '${_twoDigits(date.hour)}:${_twoDigits(date.minute)}';
+
+/// `2026-10-12`.
+String formatDate(DateTime date) =>
+    '${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)}';

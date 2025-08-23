@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -36,10 +38,56 @@ class RecorderService {
 
   Future<void> stop() => _methods.invokeMethod<void>('stopRecording');
 
+  Future<Recording> rename(Recording recording, String title) async {
+    final cleanedTitle = title
+        .trim()
+        .replaceAll(RegExp(r'[/\\\u0000-\u001F]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
+    final safeTitle = String.fromCharCodes(cleanedTitle.runes.take(80));
+    if (safeTitle.isEmpty) {
+      throw PlatformException(
+        code: 'INVALID_TITLE',
+        message: 'Enter a name for this recording.',
+      );
+    }
+
+    final extension = recording.file.uri.pathSegments.last.split('.').last;
+    var target = File('${recording.file.parent.path}/$safeTitle.$extension');
+    var suffix = 1;
+    while (await target.exists() && target.path != recording.file.path) {
+      target = File(
+        '${recording.file.parent.path}/$safeTitle (${suffix++}).$extension',
+      );
+    }
+    final renamed = await recording.file.rename(target.path);
+    return recording.copyWith(file: renamed);
+  }
+
   /// Peak microphone amplitude since the previous read, normalized by the
   /// Android recorder to its 16-bit PCM range (0–32767).
   Future<int> readPeakAmplitude() async =>
       await _methods.invokeMethod<int>('readPeakAmplitude') ?? 0;
+
+  Future<void> play(Recording recording) => _methods.invokeMethod<void>(
+    'playRecording',
+    {'path': recording.file.path},
+  );
+
+  Future<void> pausePlayback() => _methods.invokeMethod<void>('pausePlayback');
+
+  Future<void> resumePlayback() =>
+      _methods.invokeMethod<void>('resumePlayback');
+
+  Future<void> stopPlayback() => _methods.invokeMethod<void>('stopPlayback');
+
+  Future<void> seekPlayback(Duration position) => _methods.invokeMethod<void>(
+    'seekPlayback',
+    {'positionMillis': position.inMilliseconds},
+  );
+
+  Future<PlaybackState> getPlaybackState() async => PlaybackState.fromMap(
+    await _methods.invokeMapMethod<String, dynamic>('getPlaybackState'),
+  );
 
   /// Saved recordings, newest first. Also recovers recordings that were
   /// interrupted (e.g. the app was killed while recording).
