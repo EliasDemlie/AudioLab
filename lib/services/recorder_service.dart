@@ -59,8 +59,23 @@ class RecorderService {
         '${recording.file.parent.path}/$safeTitle (${suffix++}).$extension',
       );
     }
+    final oldPath = recording.file.path;
     final renamed = await recording.file.rename(target.path);
-    return recording.copyWith(file: renamed);
+    try {
+      await _methods.invokeMethod<void>('updateRecordingPath', {
+        'oldPath': oldPath,
+        'newPath': renamed.path,
+        'title': safeTitle,
+      });
+    } catch (_) {
+      await renamed.rename(oldPath);
+      rethrow;
+    }
+    return recording.copyWith(
+      file: renamed,
+      title: safeTitle,
+      updatedAt: DateTime.now(),
+    );
   }
 
   /// Peak microphone amplitude since the previous read, normalized by the
@@ -93,6 +108,12 @@ class RecorderService {
   /// interrupted (e.g. the app was killed while recording).
   Future<List<Recording>> loadRecordings() async {
     final list = await _methods.invokeListMethod<Map>('listRecordings');
+    return [...?list?.map(Recording.fromMap)];
+  }
+
+  /// Full catalog, including unavailable and recently deleted audio entries.
+  Future<List<Recording>> loadLibraryRecordings() async {
+    final list = await _methods.invokeListMethod<Map>('listLibraryRecordings');
     return [...?list?.map(Recording.fromMap)];
   }
 

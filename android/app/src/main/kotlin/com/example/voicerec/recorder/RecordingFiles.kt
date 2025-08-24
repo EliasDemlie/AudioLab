@@ -79,7 +79,11 @@ object RecordingFiles {
     }
 
     /** Saved recordings, newest first, excluding [activePath]. Call on [io]. */
-    fun list(context: Context, activePath: String?): List<Map<String, Any?>> =
+    fun list(
+        context: Context,
+        activePath: String?,
+        includeDuration: Boolean = true,
+    ): List<Map<String, Any?>> =
         dir(context).listFiles()
             .orEmpty()
             .filter { it.isFile && it.absolutePath != activePath }
@@ -90,7 +94,7 @@ object RecordingFiles {
                     "path" to file.absolutePath,
                     "sizeBytes" to file.length(),
                     "modifiedAtMillis" to file.lastModified(),
-                    "durationMillis" to durationMillis(file),
+                    "durationMillis" to if (includeDuration) durationMillis(file) else null,
                 )
             }
 
