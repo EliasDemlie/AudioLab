@@ -117,7 +117,6 @@ class _RecorderScreenState extends State<RecorderScreen> {
                 child: Column(
                   children: [
                     RecordingStatus(
-                      status: _controller.status,
                       elapsed: _controller.elapsed,
                       micSilenced: _controller.micSilenced,
                     ),
@@ -131,7 +130,9 @@ class _RecorderScreenState extends State<RecorderScreen> {
                     const SizedBox(height: 14),
                     RecordControls(
                       status: _controller.status,
-                      isBusy: _controller.isBusy || _controlsLocked,
+                      isBusy: _controller.isBusy,
+                      isLocked: _controlsLocked,
+                      isStopPending: _controller.isStopPending,
                       onStart: _controller.start,
                       onPause: _controller.pause,
                       onResume: _controller.resume,

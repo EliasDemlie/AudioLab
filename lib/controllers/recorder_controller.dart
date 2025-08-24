@@ -43,6 +43,7 @@ class RecorderController extends ChangeNotifier {
 
   /// True while a request or native state transition is still in flight.
   bool get isBusy => _isBusy || _pendingStatus != null;
+  bool get isStopPending => _pendingStatus == RecorderStatus.stopping;
 
   /// Error messages to show to the user.
   Stream<String> get errors => _errors.stream;
