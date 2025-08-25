@@ -104,6 +104,21 @@ class RecorderService {
     await _methods.invokeMapMethod<String, dynamic>('getPlaybackState'),
   );
 
+  Future<String> trimAudio(
+    Recording recording, {
+    required Duration start,
+    required Duration end,
+  }) async =>
+      await _methods.invokeMethod<String>('trimRecording', {
+        'path': recording.file.path,
+        'startMillis': start.inMilliseconds,
+        'endMillis': end.inMilliseconds,
+      }) ??
+      (throw PlatformException(
+        code: 'EDIT_FAILED',
+        message: 'The edited recording was not saved.',
+      ));
+
   /// Saved recordings, newest first. Also recovers recordings that were
   /// interrupted (e.g. the app was killed while recording).
   Future<List<Recording>> loadRecordings() async {

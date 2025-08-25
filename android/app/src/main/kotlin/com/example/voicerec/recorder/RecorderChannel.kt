@@ -93,6 +93,7 @@ class RecorderChannel(
             "listRecordings" -> listRecordings(result)
             "listLibraryRecordings" -> listLibraryRecordings(result)
             "updateRecordingPath" -> updateRecordingPath(call, result)
+            "trimRecording" -> trimRecording(call, result)
             "deleteRecording" -> deleteRecording(call.argument<String>("path"), result)
             else -> result.notImplemented()
         }
@@ -191,6 +192,31 @@ class RecorderChannel(
             } catch (e: Exception) {
                 activity.runOnUiThread {
                     result.error("METADATA_UPDATE_FAILED", e.message, null)
+                }
+            }
+        }
+    }
+
+    private fun trimRecording(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val startMillis = call.argument<Number>("startMillis")?.toLong()
+        val endMillis = call.argument<Number>("endMillis")?.toLong()
+        if (path == null || startMillis == null || endMillis == null) {
+            result.error("BAD_ARGS", "Missing recording range", null)
+            return
+        }
+        RecordingFiles.io.execute {
+            try {
+                val edited = RecordingFiles.trim(
+                    activity.applicationContext,
+                    File(path),
+                    startMillis,
+                    endMillis,
+                )
+                activity.runOnUiThread { result.success(edited.absolutePath) }
+            } catch (e: Exception) {
+                activity.runOnUiThread {
+                    result.error("EDIT_FAILED", e.message ?: "Could not edit recording.", null)
                 }
             }
         }

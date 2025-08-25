@@ -110,6 +110,61 @@ object RecordingFiles {
         }
     }
 
+    /** Writes the selected audio segment to a new M4A file without changing the source. */
+    fun trim(context: Context, source: File, startMillis: Long, endMillis: Long): File {
+        require(source.isFile) { "Recording file was not found." }
+        require(startMillis >= 0 && endMillis > startMillis) { "Choose a valid audio range." }
+        val directory = dir(context)
+        val base = "${source.nameWithoutExtension}_edited"
+        var target = File(directory, "$base.$FINAL_EXTENSION")
+        var suffix = 1
+        while (target.exists()) target = File(directory, "${base}_${suffix++}.$FINAL_EXTENSION")
+
+        val extractor = MediaExtractor()
+        var muxer: MediaMuxer? = null
+        try {
+            extractor.setDataSource(source.absolutePath)
+            val inputTrack = (0 until extractor.trackCount).first {
+                extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            }
+            extractor.selectTrack(inputTrack)
+            val startUs = startMillis * 1_000
+            val endUs = endMillis * 1_000
+            extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+
+            muxer = MediaMuxer(target.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            val outputTrack = muxer.addTrack(extractor.getTrackFormat(inputTrack))
+            muxer.start()
+            val buffer = ByteBuffer.allocate(256 * 1024)
+            val info = MediaCodec.BufferInfo()
+            var firstSampleUs = -1L
+            var samples = 0
+            while (true) {
+                val sampleUs = extractor.sampleTime
+                if (sampleUs < 0 || sampleUs > endUs) break
+                if (sampleUs >= startUs) {
+                    val size = extractor.readSampleData(buffer, 0)
+                    if (size < 0) break
+                    if (firstSampleUs < 0) firstSampleUs = sampleUs
+                    info.set(0, size, sampleUs - firstSampleUs, MediaCodec.BUFFER_FLAG_KEY_FRAME)
+                    muxer.writeSampleData(outputTrack, buffer, info)
+                    samples++
+                }
+                extractor.advance()
+            }
+            check(samples > 0) { "No audio found in the selected range." }
+            muxer.stop()
+            target.setLastModified(System.currentTimeMillis())
+            return target
+        } catch (e: Exception) {
+            target.delete()
+            throw e
+        } finally {
+            muxer?.release()
+            extractor.release()
+        }
+    }
+
     /** Copies the AAC samples from an ADTS stream into an MP4 container. */
     private fun remux(source: File, target: File) {
         val extractor = MediaExtractor()
