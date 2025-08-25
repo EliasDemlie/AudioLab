@@ -104,27 +104,64 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
 
   Future<void> _rename() async {
     final input = TextEditingController(text: _recording.title);
-    final title = await showDialog<String>(
+    final title = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rename recording'),
-        content: TextField(
-          controller: input,
-          autofocus: true,
-          maxLength: 80,
-          decoration: const InputDecoration(labelText: 'Recording name'),
-          onSubmitted: (value) => Navigator.pop(context, value),
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 8,
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 24,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Rename file',
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: input,
+                autofocus: true,
+                maxLength: 80,
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: 'File name',
+                  suffixText: '.${_recording.format.toLowerCase()}',
+                  border: const UnderlineInputBorder(),
+                ),
+                onSubmitted: (_) => FocusScope.of(sheetContext).unfocus(),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          Navigator.of(sheetContext).pop<String>(null),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(sheetContext, input.text),
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text('Save name'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, input.text),
-            child: const Text('Save'),
-          ),
-        ],
+        ),
       ),
     );
     input.dispose();
