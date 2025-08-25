@@ -31,6 +31,7 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
   Timer? _playbackTicker;
   bool _hasStartedPlayback = false;
   bool _editing = false;
+  bool _renaming = false;
 
   PlaybackState get _playback => _playbackState.value;
 
@@ -103,76 +104,85 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
   }
 
   Future<void> _rename() async {
+    if (_renaming) return;
+    _renaming = true;
     final input = TextEditingController(text: _recording.title);
-    final title = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 8,
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 24,
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Rename file',
-                style: Theme.of(sheetContext).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: input,
-                autofocus: true,
-                maxLength: 80,
-                textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  labelText: 'File name',
-                  suffixText: '.${_recording.format.toLowerCase()}',
-                  border: const UnderlineInputBorder(),
+    try {
+      final title = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheetContext) => Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 8,
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 24,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Rename file',
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
                 ),
-                onSubmitted: (_) => FocusScope.of(sheetContext).unfocus(),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.of(sheetContext).pop<String>(null),
-                      child: const Text('Cancel'),
-                    ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: input,
+                  autofocus: true,
+                  maxLength: 80,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: 'File name',
+                    suffixText: '.${_recording.format.toLowerCase()}',
+                    border: const UnderlineInputBorder(),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => Navigator.pop(sheetContext, input.text),
-                      icon: const Icon(Icons.save_outlined),
-                      label: const Text('Save name'),
+                  onSubmitted: (_) => FocusScope.of(sheetContext).unfocus(),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop<String>(sheetContext),
+                        child: const Text('Cancel'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () =>
+                            Navigator.pop<String>(sheetContext, input.text),
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('Save name'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    input.dispose();
-    if (title == null || !mounted) return;
-    try {
+      );
+      if (title == null || !mounted) return;
       final renamed = await widget.controller.rename(_recording, title);
       if (mounted) setState(() => _recording = renamed);
     } on PlatformException catch (e) {
       _showMessage(e.message ?? 'Could not rename this recording.');
     } on FileSystemException catch (e) {
-      _showMessage(e.message);
+      _showMessage(
+        e.message.isEmpty ? 'Could not rename this recording.' : e.message,
+      );
+    } catch (error) {
+      _showMessage('Could not rename this recording. Please try again.');
+      debugPrint('Rename failed: $error');
+    } finally {
+      input.dispose();
+      _renaming = false;
     }
   }
 
