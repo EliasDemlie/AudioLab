@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../models/recorder_state.dart';
 import '../models/recording.dart';
+import '../models/recording_waveform.dart';
 import '../services/recorder_service.dart';
 
 /// Holds the recorder UI state and turns user actions into service calls.
@@ -171,6 +172,9 @@ class RecorderController extends ChangeNotifier {
       _service.seekPlayback(position);
 
   Future<PlaybackState> getPlaybackState() => _service.getPlaybackState();
+
+  Future<RecordingWaveform> loadWaveform(Recording recording) =>
+      _service.loadWaveform(recording);
 
   Future<void> setPlaybackEqualizer(List<double> gains) =>
       _service.setPlaybackEqualizer(gains);
