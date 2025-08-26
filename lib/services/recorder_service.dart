@@ -111,6 +111,9 @@ class RecorderService {
     await _methods.invokeMapMethod<String, dynamic>('getPlaybackState'),
   );
 
+  Future<void> setPlaybackEqualizer(List<double> gains) =>
+      _methods.invokeMethod<void>('setPlaybackEqualizer', {'gains': gains});
+
   Future<String> trimAudio(
     Recording recording, {
     required Duration start,
