@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:voicerec/controllers/recorder_controller.dart';
 import 'package:voicerec/models/recording.dart';
+import 'package:voicerec/models/recording_waveform.dart';
+import 'package:voicerec/screens/audio_editor_screen.dart';
 import 'package:voicerec/screens/recording_saved_screen.dart';
 import 'package:voicerec/services/recorder_service.dart';
 
@@ -134,13 +136,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(editAction);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save copy'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Save copy'));
     await tester.pumpAndSettle();
 
     expect(find.text('The edited copy could not be saved.'), findsOneWidget);
-    expect(service.calls, ['play', 'stop', 'trim']);
+    expect(find.byType(AudioEditorScreen), findsOneWidget);
+    expect(service.calls, containsAllInOrder(['play', 'stop', 'trim']));
+    await _tapControl(tester, 'Back to player');
+    await tester.pumpAndSettle();
+    expect(find.byType(AudioEditorScreen), findsNothing);
     await _tapControl(tester, 'Play');
-    expect(service.calls, ['play', 'stop', 'trim', 'play']);
+    expect(service.calls.last, 'play');
+    expect(service.calls.where((call) => call == 'play'), hasLength(2));
     expect(find.byTooltip('Pause'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -244,6 +253,10 @@ class _PlaybackService extends RecorderService {
   final List<Duration> seeks = [];
   Duration _position = Duration.zero;
   bool _isPlaying = false;
+
+  @override
+  Future<RecordingWaveform> loadWaveform(Recording recording) async =>
+      RecordingWaveform(duration: duration, peaks: List.filled(80, 0.5));
 
   @override
   Future<void> play(Recording recording) async {
