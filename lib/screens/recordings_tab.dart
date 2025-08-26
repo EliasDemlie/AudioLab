@@ -11,11 +11,13 @@ class RecordingsTab extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onOpen,
+    required this.onRename,
     required this.onDelete,
   });
 
   final RecorderController controller;
   final ValueChanged<Recording> onOpen;
+  final ValueChanged<Recording> onRename;
   final ValueChanged<Recording> onDelete;
 
   @override
@@ -35,6 +37,7 @@ class RecordingsTab extends StatelessWidget {
           child: RecordingsList(
             recordings: recordings,
             onOpen: onOpen,
+            onRename: onRename,
             onShare: controller.share,
             onDelete: onDelete,
             onRefresh: controller.refreshRecordings,

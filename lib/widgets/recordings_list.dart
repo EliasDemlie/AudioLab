@@ -9,6 +9,7 @@ class RecordingsList extends StatelessWidget {
     super.key,
     required this.recordings,
     required this.onOpen,
+    required this.onRename,
     required this.onShare,
     required this.onDelete,
     required this.onRefresh,
@@ -16,6 +17,7 @@ class RecordingsList extends StatelessWidget {
 
   final List<Recording> recordings;
   final ValueChanged<Recording> onOpen;
+  final ValueChanged<Recording> onRename;
   final ValueChanged<Recording> onShare;
   final ValueChanged<Recording> onDelete;
   final Future<void> Function() onRefresh;
@@ -41,9 +43,8 @@ class RecordingsList extends StatelessWidget {
         separatorBuilder: (_, _) => Divider(
           height: 1,
           indent: 58,
-          color: Theme.of(
-            context,
-          ).colorScheme.outlineVariant.withValues(alpha: 0.35),
+          color: Theme.of(context).colorScheme.outlineVariant
+              .withValues(alpha: 0.35),
         ),
         itemBuilder: (context, index) {
           final recording = recordings[index];
@@ -71,9 +72,8 @@ class RecordingsList extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   formatBytes(recording.sizeBytes),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: colors.onSurfaceVariant),
                 ),
               ],
             ),
@@ -94,10 +94,12 @@ class RecordingsList extends StatelessWidget {
               padding: EdgeInsets.zero,
               iconSize: 22,
               onSelected: (action) {
+                if (action == 'rename') onRename(recording);
                 if (action == 'share') onShare(recording);
                 if (action == 'delete') onDelete(recording);
               },
               itemBuilder: (context) => const [
+                PopupMenuItem(value: 'rename', child: Text('Rename')),
                 PopupMenuItem(value: 'share', child: Text('Share')),
                 PopupMenuItem(value: 'delete', child: Text('Delete')),
               ],
