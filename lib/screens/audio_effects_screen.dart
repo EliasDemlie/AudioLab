@@ -55,6 +55,37 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final inheritedTheme = Theme.of(context);
+    final lightColors = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF087F82),
+      brightness: Brightness.light,
+    );
+    final effectsTheme = inheritedTheme.copyWith(
+      brightness: Brightness.light,
+      colorScheme: lightColors,
+      scaffoldBackgroundColor: const Color(0xFFF4F8F7),
+      iconTheme: IconThemeData(color: lightColors.onSurface),
+      textTheme: inheritedTheme.textTheme.apply(
+        bodyColor: lightColors.onSurface,
+        displayColor: lightColors.onSurface,
+      ),
+      appBarTheme: inheritedTheme.appBarTheme.copyWith(
+        backgroundColor: const Color(0xFFF4F8F7),
+        foregroundColor: lightColors.onSurface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      cardTheme: inheritedTheme.cardTheme.copyWith(
+        color: lightColors.surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+    );
+    return Theme(
+      data: effectsTheme,
+      child: Builder(builder: _buildEffectsScreen),
+    );
+  }
+
+  Widget _buildEffectsScreen(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final selected = _selectedPreset;
     return Scaffold(
@@ -69,17 +100,14 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
           const SizedBox(height: 8),
           Text(
             'Adjust playback EQ for a clearer voice preview.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 28),
           Text(
             'PRESETS',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-              letterSpacing: 1.2,
-            ),
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(color: colors.onSurfaceVariant, letterSpacing: 1.2),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -94,32 +122,40 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 28),
-          _GainSlider(
-            title: 'Bass',
-            subtitle: 'Low frequencies',
-            value: _gains[0],
-            onChanged: (value) =>
-                setState(() => _gains = [value, _gains[1], _gains[2]]),
-            onChangeEnd: (_) => _apply(_gains),
-          ),
-          const SizedBox(height: 20),
-          _GainSlider(
-            title: 'Presence',
-            subtitle: 'Voice clarity',
-            value: _gains[1],
-            onChanged: (value) =>
-                setState(() => _gains = [_gains[0], value, _gains[2]]),
-            onChangeEnd: (_) => _apply(_gains),
-          ),
-          const SizedBox(height: 20),
-          _GainSlider(
-            title: 'Treble',
-            subtitle: 'High frequencies',
-            value: _gains[2],
-            onChanged: (value) =>
-                setState(() => _gains = [_gains[0], _gains[1], value]),
-            onChangeEnd: (_) => _apply(_gains),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: _GainSlider(
+                  title: 'Bass',
+                  subtitle: 'Low end',
+                  value: _gains[0],
+                  onChanged: (value) =>
+                      setState(() => _gains = [value, _gains[1], _gains[2]]),
+                  onChangeEnd: (_) => _apply(_gains),
+                ),
+              ),
+              Expanded(
+                child: _GainSlider(
+                  title: 'Presence',
+                  subtitle: 'Voice',
+                  value: _gains[1],
+                  onChanged: (value) =>
+                      setState(() => _gains = [_gains[0], value, _gains[2]]),
+                  onChangeEnd: (_) => _apply(_gains),
+                ),
+              ),
+              Expanded(
+                child: _GainSlider(
+                  title: 'Treble',
+                  subtitle: 'High end',
+                  value: _gains[2],
+                  onChanged: (value) =>
+                      setState(() => _gains = [_gains[0], _gains[1], value]),
+                  onChangeEnd: (_) => _apply(_gains),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           Card(
@@ -169,38 +205,83 @@ class _GainSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final amount = (value * 12).round();
     final label = amount > 0 ? '+$amount dB' : '$amount dB';
-    return Column(
-      children: [
-        Row(
+    return Container(
+      height: 236,
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
+        child: Column(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleMedium),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+            Container(
+              width: 30,
+              height: 7,
+              decoration: BoxDecoration(
+                color: colors.onSurface.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
-            Text(label, style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: RotatedBox(
+                  quarterTurns: 3,
+                  child: SizedBox(
+                    width: 132,
+                    child: Slider(
+                      value: value.clamp(-1.0, 1.0),
+                      min: -1,
+                      max: 1,
+                      onChanged: onChanged,
+                      onChangeEnd: onChangeEnd,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Text(
+              label,
+              maxLines: 1,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w700,
+                color: colors.primary,
+              ),
+            ),
           ],
         ),
-        Slider(
-          value: value.clamp(-1.0, 1.0),
-          min: -1,
-          max: 1,
-          onChanged: onChanged,
-          onChangeEnd: onChangeEnd,
-        ),
-      ],
+      ),
     );
   }
 }

@@ -213,32 +213,33 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+                padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
                 children: [
-                  Center(
-                    child: SizedBox(
-                      width: (constraints.maxHeight * 0.34).clamp(160.0, 300.0),
-                      child: _RecordingArtwork(color: colors.primary),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _recording.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Voice recording · ${formatDate(_recording.createdAt)}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
+                  ValueListenableBuilder<PlaybackState>(
+                    valueListenable: _playbackState,
+                    builder: (context, playback, _) => Center(
+                      child: SizedBox(
+                        width: (constraints.maxHeight * 0.28).clamp(
+                          144.0,
+                          228.0,
+                        ),
+                        child: _RecordingArtwork(
+                          color: colors.primary,
+                          isPlaying: playback.isPlaying,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
+                  Text(
+                    _recording.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   _PlaybackControls(
                     state: _playbackState,
                     busy: _playbackBusy,
@@ -430,7 +431,7 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                 Text(_timeLabel(total), style: timeStyle),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -443,7 +444,7 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                         )
                       : null,
                 ),
-                const SizedBox(width: 28),
+                const SizedBox(width: 18),
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.all(6),
@@ -475,7 +476,7 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                       ),
                     ),
                     child: SizedBox.square(
-                      dimension: 80,
+                      dimension: 68,
                       child: IconButton(
                         tooltip: playback.isPlaying ? 'Pause' : 'Play',
                         onPressed: isBusy || widget.isEditing
@@ -501,14 +502,14 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                                       ? Icons.pause_rounded
                                       : Icons.play_arrow_rounded,
                                   key: ValueKey(playback.isPlaying),
-                                  size: 44,
+                                  size: 38,
                                 ),
                               ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 28),
+                const SizedBox(width: 18),
                 _SkipButton(
                   tooltip: 'Forward 10 seconds',
                   icon: Icons.forward_10_rounded,
@@ -542,11 +543,11 @@ class _SkipButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return SizedBox.square(
-      dimension: 56,
+      dimension: 44,
       child: IconButton.filledTonal(
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon, size: 27),
+        icon: Icon(icon, size: 22),
         style: IconButton.styleFrom(
           backgroundColor: colors.onSurface.withValues(alpha: 0.05),
           foregroundColor: colors.onSurface,
@@ -597,9 +598,10 @@ class _PlayerAction extends StatelessWidget {
 }
 
 class _RecordingArtwork extends StatelessWidget {
-  const _RecordingArtwork({required this.color});
+  const _RecordingArtwork({required this.color, required this.isPlaying});
 
   final Color color;
+  final bool isPlaying;
 
   @override
   Widget build(BuildContext context) => AspectRatio(
@@ -624,26 +626,40 @@ class _RecordingArtwork extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Icon(
-            Icons.graphic_eq_rounded,
-            size: 162,
-            color: Colors.white.withValues(alpha: 0.12),
+          AnimatedScale(
+            scale: isPlaying ? 1.08 : 1,
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOut,
+            child: Icon(
+              Icons.graphic_eq_rounded,
+              size: 126,
+              color: Colors.white.withValues(alpha: isPlaying ? 0.2 : 0.12),
+            ),
           ),
-          Container(
-            width: 126,
-            height: 126,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.black.withValues(alpha: 0.25),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.24),
-                width: 1.5,
+          AnimatedScale(
+            scale: isPlaying ? 1.04 : 1,
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOut,
+            child: Container(
+              width: 104,
+              height: 104,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withValues(alpha: 0.25),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 1.5,
+                ),
+              ),
+              child: const Icon(
+                Icons.mic_rounded,
+                size: 48,
+                color: Colors.white,
               ),
             ),
-            child: const Icon(Icons.mic_rounded, size: 58, color: Colors.white),
           ),
           Positioned(
-            bottom: 20,
+            bottom: 14,
             child: Text(
               'VOICE RECORDING',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
