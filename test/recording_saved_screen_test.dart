@@ -12,9 +12,7 @@ import 'package:voicerec/screens/recording_saved_screen.dart';
 import 'package:voicerec/services/recorder_service.dart';
 
 void main() {
-  testWidgets('effects controls use a light theme in dark mode', (
-    tester,
-  ) async {
+  testWidgets('effects controls match the dark app theme', (tester) async {
     final service = _PlaybackService();
     final controller = RecorderController(service: service);
     addTearDown(controller.dispose);
@@ -27,12 +25,16 @@ void main() {
 
     final sliders = find.byType(Slider);
     expect(sliders, findsNWidgets(3));
+    final heading = tester.widget<Text>(find.text('Shape your sound'));
     final screenTheme = Theme.of(tester.element(sliders.first));
-    expect(screenTheme.brightness, Brightness.light);
+    expect(screenTheme.brightness, Brightness.dark);
     expect(
       screenTheme.colorScheme.surfaceContainerHigh.computeLuminance(),
-      greaterThan(0.5),
+      lessThan(0.5),
     );
+    tester.widget<Slider>(sliders.first).onChanged!(0.5);
+    await tester.pump();
+    expect(tester.widget<Text>(find.text('Shape your sound')), same(heading));
     expect(tester.takeException(), isNull);
   });
 
