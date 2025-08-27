@@ -19,16 +19,19 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
     'Warm': [0.28, 0.08, -0.14],
     'Bright': [-0.12, 0.12, 0.32],
   };
-  List<double> _gains = const [0, 0, 0];
-  bool _busy = false;
+  final ValueNotifier<List<double>> _gains = ValueNotifier(const [
+    0.0,
+    0.0,
+    0.0,
+  ]);
+  final ValueNotifier<bool> _busy = ValueNotifier(false);
 
   Future<void> _apply(List<double> gains) async {
-    setState(() {
-      _gains = List.unmodifiable(gains);
-      _busy = true;
-    });
+    final appliedGains = List<double>.unmodifiable(gains);
+    _gains.value = appliedGains;
+    _busy.value = true;
     try {
-      await widget.controller.setPlaybackEqualizer(_gains);
+      await widget.controller.setPlaybackEqualizer(appliedGains);
     } on PlatformException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -38,15 +41,22 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) _busy.value = false;
     }
   }
 
-  String get _selectedPreset {
+  @override
+  void dispose() {
+    _gains.dispose();
+    _busy.dispose();
+    super.dispose();
+  }
+
+  String _selectedPreset(List<double> gains) {
     for (final entry in _presets.entries) {
       var matches = true;
       for (var i = 0; i < 3; i++) {
-        if ((entry.value[i] - _gains[i]).abs() > 0.01) matches = false;
+        if ((entry.value[i] - gains[i]).abs() > 0.01) matches = false;
       }
       if (matches) return entry.key;
     }
@@ -56,7 +66,6 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final selected = _selectedPreset;
     return Scaffold(
       appBar: AppBar(title: const Text('Effects')),
       body: ListView(
@@ -79,47 +88,56 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
                 ?.copyWith(color: colors.onSurfaceVariant, letterSpacing: 1.2),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final entry in _presets.entries)
-                ChoiceChip(
-                  showCheckmark: false,
-                  label: Text(entry.key, maxLines: 1, softWrap: false),
-                  selected: selected == entry.key,
-                  onSelected: _busy ? null : (_) => _apply(entry.value),
-                ),
-            ],
+          ValueListenableBuilder<List<double>>(
+            valueListenable: _gains,
+            builder: (context, gains, _) => ValueListenableBuilder<bool>(
+              valueListenable: _busy,
+              builder: (context, busy, _) => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final entry in _presets.entries)
+                    ChoiceChip(
+                      showCheckmark: false,
+                      label: Text(entry.key, maxLines: 1, softWrap: false),
+                      selected: _selectedPreset(gains) == entry.key,
+                      onSelected: busy ? null : (_) => _apply(entry.value),
+                    ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _GainSlider(
-                  title: 'Bass',
-                  subtitle: 'Low end',
-                  value: _gains[0],
-                  onChangeEnd: (value) => _apply([value, _gains[1], _gains[2]]),
+          ValueListenableBuilder<List<double>>(
+            valueListenable: _gains,
+            builder: (context, gains, _) => Row(
+              children: [
+                Expanded(
+                  child: _GainSlider(
+                    title: 'Bass',
+                    subtitle: 'Low end',
+                    value: gains[0],
+                    onChangeEnd: (value) => _apply([value, gains[1], gains[2]]),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _GainSlider(
-                  title: 'Presence',
-                  subtitle: 'Voice',
-                  value: _gains[1],
-                  onChangeEnd: (value) => _apply([_gains[0], value, _gains[2]]),
+                Expanded(
+                  child: _GainSlider(
+                    title: 'Presence',
+                    subtitle: 'Voice',
+                    value: gains[1],
+                    onChangeEnd: (value) => _apply([gains[0], value, gains[2]]),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _GainSlider(
-                  title: 'Treble',
-                  subtitle: 'High end',
-                  value: _gains[2],
-                  onChangeEnd: (value) => _apply([_gains[0], _gains[1], value]),
+                Expanded(
+                  child: _GainSlider(
+                    title: 'Treble',
+                    subtitle: 'High end',
+                    value: gains[2],
+                    onChangeEnd: (value) => _apply([gains[0], gains[1], value]),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 24),
           Card(
@@ -135,13 +153,18 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
-                  if (_busy) ...[
-                    const SizedBox(width: 12),
-                    const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ],
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _busy,
+                    builder: (context, busy, _) => busy
+                        ? const Padding(
+                            padding: EdgeInsets.only(left: 12),
+                            child: SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                 ],
               ),
             ),
