@@ -651,11 +651,7 @@ class _RecordingArtwork extends StatelessWidget {
                   width: 1.5,
                 ),
               ),
-              child: const Icon(
-                Icons.mic_rounded,
-                size: 48,
-                color: Colors.white,
-              ),
+              child: _PlaybackWaveform(isPlaying: isPlaying),
             ),
           ),
           Positioned(
@@ -668,6 +664,45 @@ class _RecordingArtwork extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _PlaybackWaveform extends StatelessWidget {
+  const _PlaybackWaveform({required this.isPlaying});
+
+  static const _restingHeights = [8.0, 14.0, 22.0, 30.0, 22.0, 14.0, 8.0];
+  static const _playingHeights = [20.0, 40.0, 28.0, 52.0, 32.0, 44.0, 18.0];
+
+  final bool isPlaying;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    key: const ValueKey('playback-waveform'),
+    label: isPlaying ? 'Playing waveform' : 'Recording waveform',
+    child: SizedBox(
+      width: 72,
+      height: 64,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          for (var index = 0; index < _restingHeights.length; index++)
+            AnimatedContainer(
+              key: ValueKey('playback-waveform-bar-$index'),
+              width: 5,
+              height: isPlaying
+                  ? _playingHeights[index]
+                  : _restingHeights[index],
+              duration: Duration(milliseconds: 380 + index * 45),
+              curve: Curves.easeInOutCubic,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: isPlaying ? 0.96 : 0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
         ],
       ),
     ),
