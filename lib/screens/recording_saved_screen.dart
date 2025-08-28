@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,10 +30,12 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
     const PlaybackState(),
   );
   final ValueNotifier<bool> _playbackBusy = ValueNotifier(false);
+  final ValueNotifier<List<double>> _waveformPeaks = ValueNotifier(const []);
   Timer? _playbackTicker;
   bool _hasStartedPlayback = false;
   bool _editing = false;
   int _playbackRevision = 0;
+  int _waveformRevision = 0;
 
   PlaybackState get _playback => _playbackState.value;
   Duration get _duration => _playback.duration > Duration.zero
@@ -40,11 +43,32 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
       : _recording.duration ?? Duration.zero;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(_loadWaveform(_recording));
+  }
+
+  Future<void> _loadWaveform(Recording recording) async {
+    final revision = ++_waveformRevision;
+    try {
+      final waveform = await widget.controller.loadWaveform(recording);
+      if (mounted && revision == _waveformRevision) {
+        _waveformPeaks.value = waveform.peaks;
+      }
+    } catch (_) {
+      if (mounted && revision == _waveformRevision) {
+        _waveformPeaks.value = const [];
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _playbackTicker?.cancel();
     unawaited(widget.controller.stopPlayback());
     _playbackState.dispose();
     _playbackBusy.dispose();
+    _waveformPeaks.dispose();
     super.dispose();
   }
 
@@ -154,6 +178,8 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
       if (!mounted) return;
       if (edited != null) {
         setState(() => _recording = edited);
+        _waveformPeaks.value = const [];
+        unawaited(_loadWaveform(edited));
         _showMessage('Edited audio saved as a new recording.');
       }
     } on PlatformException catch (error) {
@@ -216,10 +242,24 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
               children: [
                 ValueListenableBuilder<PlaybackState>(
                   valueListenable: _playbackState,
-                  builder: (context, playback, _) => SizedBox(
-                    width: double.infinity,
-                    height: 124,
-                    child: _PlaybackWaveform(isPlaying: playback.isPlaying),
+                  builder: (context, playback, _) => ValueListenableBuilder(
+                    valueListenable: _waveformPeaks,
+                    builder: (context, peaks, _) {
+                      final durationMillis = _duration.inMilliseconds;
+                      final progress = durationMillis > 0
+                          ? (playback.position.inMilliseconds / durationMillis)
+                                .clamp(0.0, 1.0)
+                          : 0.0;
+                      return SizedBox(
+                        width: double.infinity,
+                        height: 124,
+                        child: _PlaybackWaveform(
+                          peaks: peaks,
+                          progress: progress,
+                          isPlaying: playback.isPlaying,
+                        ),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -587,72 +627,66 @@ class _PlayerAction extends StatelessWidget {
 }
 
 class _PlaybackWaveform extends StatelessWidget {
-  const _PlaybackWaveform({required this.isPlaying});
+  const _PlaybackWaveform({
+    required this.peaks,
+    required this.progress,
+    required this.isPlaying,
+  });
 
-  static const _amplitudes = [
-    0.12,
-    0.20,
-    0.36,
-    0.22,
-    0.45,
-    0.70,
-    0.35,
-    0.17,
-    0.31,
-    0.56,
-    0.88,
-    0.51,
-    0.28,
-    0.42,
-    0.72,
-    0.96,
-    0.63,
-    0.34,
-    0.19,
-    0.45,
-    0.76,
-    0.57,
-    0.28,
-    0.49,
-    0.83,
-    0.56,
-    0.31,
-    0.46,
-    0.68,
-    0.39,
-    0.20,
-  ];
+  static const _barCount = 31;
 
+  final List<double> peaks;
+  final double progress;
   final bool isPlaying;
 
+  double _amplitudeForBar(int barIndex) {
+    if (peaks.isEmpty) return 0.12;
+    final startIndex = barIndex * peaks.length ~/ _barCount;
+    final endIndex = math.max(
+      startIndex + 1,
+      (barIndex + 1) * peaks.length ~/ _barCount,
+    );
+    var amplitude = 0.0;
+    for (var sampleIndex = startIndex; sampleIndex < endIndex; sampleIndex++) {
+      final peak = peaks[sampleIndex];
+      if (peak.isFinite && peak > amplitude) {
+        amplitude = peak.clamp(0.0, 1.0).toDouble();
+      }
+    }
+    return amplitude;
+  }
+
   @override
-  Widget build(BuildContext context) => Semantics(
-    key: const ValueKey('playback-waveform'),
-    label: isPlaying ? 'Playing waveform' : 'Recording waveform',
-    child: SizedBox(
-      width: double.infinity,
-      height: 124,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          for (var index = 0; index < _amplitudes.length; index++)
-            AnimatedContainer(
-              key: ValueKey('playback-waveform-bar-$index'),
-              width: 4,
-              height: isPlaying
-                  ? 18 + _amplitudes[index] * 70
-                  : 8 + _amplitudes[index] * 28,
-              duration: Duration(milliseconds: 380 + index * 45),
-              curve: Curves.easeInOutCubic,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary
-                    .withValues(alpha: isPlaying ? 0.98 : 0.64),
-                borderRadius: BorderRadius.circular(4),
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final activeBar = (progress * _barCount).floor();
+    return Semantics(
+      key: const ValueKey('playback-waveform'),
+      label: isPlaying ? 'Playing waveform' : 'Recording waveform',
+      child: SizedBox(
+        width: double.infinity,
+        height: 124,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            for (var index = 0; index < _barCount; index++)
+              AnimatedContainer(
+                key: ValueKey('playback-waveform-bar-$index'),
+                width: 4,
+                height: 5 + _amplitudeForBar(index) * 78,
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeInOut,
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(
+                    alpha: isPlaying && index <= activeBar ? 0.98 : 0.42,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

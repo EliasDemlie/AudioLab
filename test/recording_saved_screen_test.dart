@@ -63,7 +63,9 @@ void main() {
   testWidgets('player toggles playback without offering rename actions', (
     tester,
   ) async {
-    final service = _PlaybackService();
+    final service = _PlaybackService(
+      waveformPeaks: List.generate(80, (index) => index / 79),
+    );
     await _showPlayer(tester, service);
 
     expect(find.byTooltip('Rename recording'), findsNothing);
@@ -72,6 +74,13 @@ void main() {
     expect(service.calls, isEmpty);
     final waveform = find.byKey(const ValueKey('playback-waveform'));
     expect(tester.getSize(waveform).width, greaterThan(300));
+    final quietBarHeight = tester
+        .getSize(find.byKey(const ValueKey('playback-waveform-bar-0')))
+        .height;
+    final loudBarHeight = tester
+        .getSize(find.byKey(const ValueKey('playback-waveform-bar-30')))
+        .height;
+    expect(quietBarHeight, lessThan(loudBarHeight));
 
     await _tapControl(tester, 'Play');
     expect(find.byTooltip('Pause'), findsOneWidget);
@@ -297,10 +306,12 @@ class _PlaybackService extends RecorderService {
   _PlaybackService({
     this.initialPosition = Duration.zero,
     this.failTrim = false,
+    this.waveformPeaks,
   });
 
   final Duration initialPosition;
   final bool failTrim;
+  final List<double>? waveformPeaks;
   final Duration duration = const Duration(seconds: 20);
   final List<String> calls = [];
   final List<Duration> seeks = [];
@@ -310,7 +321,10 @@ class _PlaybackService extends RecorderService {
 
   @override
   Future<RecordingWaveform> loadWaveform(Recording recording) async =>
-      RecordingWaveform(duration: duration, peaks: List.filled(80, 0.5));
+      RecordingWaveform(
+        duration: duration,
+        peaks: waveformPeaks ?? List.filled(80, 0.5),
+      );
 
   @override
   Future<void> play(Recording recording) async {
