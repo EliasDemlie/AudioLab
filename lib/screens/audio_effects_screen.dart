@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/recorder_controller.dart';
+import '../widgets/circular_eq_dial.dart';
 
 class AudioEffectsScreen extends StatefulWidget {
   const AudioEffectsScreen({super.key, required this.controller});
@@ -113,27 +114,24 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
             builder: (context, gains, _) => Row(
               children: [
                 Expanded(
-                  child: _GainSlider(
-                    title: 'Bass',
-                    subtitle: 'Low end',
+                  child: CircularEqDial(
+                    label: 'Bass',
                     value: gains[0],
-                    onChangeEnd: (value) => _apply([value, gains[1], gains[2]]),
+                    onChanged: (value) => _apply([value, gains[1], gains[2]]),
                   ),
                 ),
                 Expanded(
-                  child: _GainSlider(
-                    title: 'Presence',
-                    subtitle: 'Voice',
+                  child: CircularEqDial(
+                    label: 'Presence',
                     value: gains[1],
-                    onChangeEnd: (value) => _apply([gains[0], value, gains[2]]),
+                    onChanged: (value) => _apply([gains[0], value, gains[2]]),
                   ),
                 ),
                 Expanded(
-                  child: _GainSlider(
-                    title: 'Treble',
-                    subtitle: 'High end',
+                  child: CircularEqDial(
+                    label: 'Treble',
                     value: gains[2],
-                    onChangeEnd: (value) => _apply([gains[0], gains[1], value]),
+                    onChanged: (value) => _apply([gains[0], gains[1], value]),
                   ),
                 ),
               ],
@@ -170,115 +168,6 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GainSlider extends StatefulWidget {
-  const _GainSlider({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChangeEnd,
-  });
-
-  final String title;
-  final String subtitle;
-  final double value;
-  final ValueChanged<double> onChangeEnd;
-
-  @override
-  State<_GainSlider> createState() => _GainSliderState();
-}
-
-class _GainSliderState extends State<_GainSlider> {
-  late double _value = widget.value;
-
-  @override
-  void didUpdateWidget(covariant _GainSlider oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value) _value = widget.value;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = Theme.of(context).colorScheme;
-    final amount = (_value * 12).round();
-    final label = amount > 0 ? '+$amount dB' : '$amount dB';
-    return Container(
-      height: 236,
-      margin: const EdgeInsets.symmetric(horizontal: 3),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.6)),
-        boxShadow: [
-          BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.12),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
-        child: Column(
-          children: [
-            Container(
-              width: 30,
-              height: 7,
-              decoration: BoxDecoration(
-                color: colors.onSurface.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              widget.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              widget.subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-            Expanded(
-              child: Center(
-                child: RotatedBox(
-                  quarterTurns: 3,
-                  child: SizedBox(
-                    width: 132,
-                    child: Slider(
-                      value: _value.clamp(-1.0, 1.0),
-                      min: -1,
-                      max: 1,
-                      onChanged: (value) => setState(() => _value = value),
-                      onChangeEnd: widget.onChangeEnd,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Text(
-              label,
-              maxLines: 1,
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
-                fontWeight: FontWeight.w700,
-                color: colors.primary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
