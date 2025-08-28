@@ -9,9 +9,37 @@ import 'package:voicerec/models/recording.dart';
 import 'package:voicerec/models/recording_waveform.dart';
 import 'package:voicerec/screens/audio_editor_screen.dart';
 import 'package:voicerec/services/recorder_service.dart';
+import 'package:voicerec/widgets/circular_eq_dial.dart';
 import 'package:voicerec/widgets/audio_crop_waveform.dart';
 
 void main() {
+  testWidgets('editor keeps crop updates local and exposes circular effects', (
+    tester,
+  ) async {
+    final service = _EditorService();
+    await _showEditor(tester, service);
+
+    final title = tester.widget<Text>(find.text(_recording.title));
+    final waveform = tester.widget<AudioCropWaveform>(
+      find.byType(AudioCropWaveform),
+    );
+    waveform.onSelectionChanged(const RangeValues(0.25, 0.75));
+    await tester.pump();
+
+    expect(tester.widget<Text>(find.text(_recording.title)), same(title));
+    expect(
+      tester
+          .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
+          .selection,
+      const RangeValues(0.25, 0.75),
+    );
+
+    await _tapControl(tester, 'Show effects');
+    expect(find.byType(CircularEqDial), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('editor loads actual waveform data and retries a failed load', (
     tester,
   ) async {
