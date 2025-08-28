@@ -208,105 +208,94 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) => Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
-                children: [
-                  ValueListenableBuilder<PlaybackState>(
-                    valueListenable: _playbackState,
-                    builder: (context, playback, _) => Center(
-                      child: SizedBox(
-                        width: (constraints.maxHeight * 0.28).clamp(
-                          144.0,
-                          228.0,
-                        ),
-                        child: _RecordingArtwork(
-                          color: colors.primary,
-                          isPlaying: playback.isPlaying,
-                        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
+              children: [
+                ValueListenableBuilder<PlaybackState>(
+                  valueListenable: _playbackState,
+                  builder: (context, playback, _) => SizedBox(
+                    width: double.infinity,
+                    height: 124,
+                    child: _PlaybackWaveform(isPlaying: playback.isPlaying),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  _recording.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _PlaybackControls(
+                  state: _playbackState,
+                  busy: _playbackBusy,
+                  duration: _recording.duration,
+                  isEditing: _editing,
+                  onToggle: _togglePlayback,
+                  onSeek: _seek,
+                ),
+                const SizedBox(height: 28),
+                ValueListenableBuilder<bool>(
+                  valueListenable: _playbackBusy,
+                  builder: (context, isBusy, _) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.onSurface.withValues(alpha: 0.035),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: colors.onSurface.withValues(alpha: 0.07),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    _recording.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _PlaybackControls(
-                    state: _playbackState,
-                    busy: _playbackBusy,
-                    duration: _recording.duration,
-                    isEditing: _editing,
-                    onToggle: _togglePlayback,
-                    onSeek: _seek,
-                  ),
-                  const SizedBox(height: 28),
-                  ValueListenableBuilder<bool>(
-                    valueListenable: _playbackBusy,
-                    builder: (context, isBusy, _) => DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colors.onSurface.withValues(alpha: 0.035),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: colors.onSurface.withValues(alpha: 0.07),
-                        ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 8,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _PlayerAction(
-                                label: _editing ? 'Saving…' : 'Edit audio',
-                                icon: Icons.content_cut_rounded,
-                                isBusy: _editing,
-                                onPressed: _editing || isBusy
-                                    ? null
-                                    : _editAudio,
-                              ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _PlayerAction(
+                              label: _editing ? 'Saving…' : 'Edit audio',
+                              icon: Icons.content_cut_rounded,
+                              isBusy: _editing,
+                              onPressed: _editing || isBusy ? null : _editAudio,
                             ),
-                            Expanded(
-                              child: _PlayerAction(
-                                label: 'Effects',
-                                icon: Icons.tune_rounded,
-                                onPressed: _editing
-                                    ? null
-                                    : () => Navigator.of(context).push<void>(
-                                        MaterialPageRoute(
-                                          builder: (_) => AudioEffectsScreen(
-                                            controller: widget.controller,
-                                          ),
+                          ),
+                          Expanded(
+                            child: _PlayerAction(
+                              label: 'Effects',
+                              icon: Icons.tune_rounded,
+                              onPressed: _editing
+                                  ? null
+                                  : () => Navigator.of(context).push<void>(
+                                      MaterialPageRoute(
+                                        builder: (_) => AudioEffectsScreen(
+                                          controller: widget.controller,
                                         ),
                                       ),
-                              ),
+                                    ),
                             ),
-                            Expanded(
-                              child: _PlayerAction(
-                                label: 'Share',
-                                icon: Icons.ios_share_rounded,
-                                onPressed: _editing
-                                    ? null
-                                    : () => widget.controller.share(_recording),
-                              ),
+                          ),
+                          Expanded(
+                            child: _PlayerAction(
+                              label: 'Share',
+                              icon: Icons.ios_share_rounded,
+                              onPressed: _editing
+                                  ? null
+                                  : () => widget.controller.share(_recording),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -597,84 +586,42 @@ class _PlayerAction extends StatelessWidget {
   );
 }
 
-class _RecordingArtwork extends StatelessWidget {
-  const _RecordingArtwork({required this.color, required this.isPlaying});
-
-  final Color color;
-  final bool isPlaying;
-
-  @override
-  Widget build(BuildContext context) => AspectRatio(
-    aspectRatio: 1,
-    child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [color.withValues(alpha: 0.9), const Color(0xFF172A43)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.18),
-            blurRadius: 32,
-            offset: const Offset(0, 15),
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AnimatedScale(
-            scale: isPlaying ? 1.08 : 1,
-            duration: const Duration(milliseconds: 450),
-            curve: Curves.easeInOut,
-            child: Icon(
-              Icons.graphic_eq_rounded,
-              size: 126,
-              color: Colors.white.withValues(alpha: isPlaying ? 0.2 : 0.12),
-            ),
-          ),
-          AnimatedScale(
-            scale: isPlaying ? 1.04 : 1,
-            duration: const Duration(milliseconds: 450),
-            curve: Curves.easeInOut,
-            child: Container(
-              width: 104,
-              height: 104,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withValues(alpha: 0.25),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 1.5,
-                ),
-              ),
-              child: _PlaybackWaveform(isPlaying: isPlaying),
-            ),
-          ),
-          Positioned(
-            bottom: 14,
-            child: Text(
-              'VOICE RECORDING',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.82),
-                letterSpacing: 2.2,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 class _PlaybackWaveform extends StatelessWidget {
   const _PlaybackWaveform({required this.isPlaying});
 
-  static const _restingHeights = [8.0, 14.0, 22.0, 30.0, 22.0, 14.0, 8.0];
-  static const _playingHeights = [20.0, 40.0, 28.0, 52.0, 32.0, 44.0, 18.0];
+  static const _amplitudes = [
+    0.12,
+    0.20,
+    0.36,
+    0.22,
+    0.45,
+    0.70,
+    0.35,
+    0.17,
+    0.31,
+    0.56,
+    0.88,
+    0.51,
+    0.28,
+    0.42,
+    0.72,
+    0.96,
+    0.63,
+    0.34,
+    0.19,
+    0.45,
+    0.76,
+    0.57,
+    0.28,
+    0.49,
+    0.83,
+    0.56,
+    0.31,
+    0.46,
+    0.68,
+    0.39,
+    0.20,
+  ];
 
   final bool isPlaying;
 
@@ -683,23 +630,24 @@ class _PlaybackWaveform extends StatelessWidget {
     key: const ValueKey('playback-waveform'),
     label: isPlaying ? 'Playing waveform' : 'Recording waveform',
     child: SizedBox(
-      width: 72,
-      height: 64,
+      width: double.infinity,
+      height: 124,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          for (var index = 0; index < _restingHeights.length; index++)
+          for (var index = 0; index < _amplitudes.length; index++)
             AnimatedContainer(
               key: ValueKey('playback-waveform-bar-$index'),
-              width: 5,
+              width: 4,
               height: isPlaying
-                  ? _playingHeights[index]
-                  : _restingHeights[index],
+                  ? 18 + _amplitudes[index] * 70
+                  : 8 + _amplitudes[index] * 28,
               duration: Duration(milliseconds: 380 + index * 45),
               curve: Curves.easeInOutCubic,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: isPlaying ? 0.96 : 0.7),
+                color: Theme.of(context).colorScheme.primary
+                    .withValues(alpha: isPlaying ? 0.98 : 0.64),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
