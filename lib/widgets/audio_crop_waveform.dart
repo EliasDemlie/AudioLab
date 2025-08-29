@@ -14,6 +14,7 @@ class AudioCropWaveform extends StatefulWidget {
     required this.onSelectionChanged,
     this.positionListenable,
     required this.onSeek,
+    this.height = 112,
     this.minimumSelection = 0,
     this.enabled = true,
   });
@@ -26,6 +27,7 @@ class AudioCropWaveform extends StatefulWidget {
   final ValueListenable<double>? positionListenable;
   final ValueChanged<RangeValues> onSelectionChanged;
   final ValueChanged<double> onSeek;
+  final double height;
   final double minimumSelection;
   final bool enabled;
 
@@ -69,7 +71,7 @@ class _AudioCropWaveformState extends State<AudioCropWaveform> {
     final colors = Theme.of(context).colorScheme;
     final enabled = widget.enabled && widget.peaks.isNotEmpty;
     return SizedBox(
-      height: 112,
+      height: widget.height,
       width: double.infinity,
       child: LayoutBuilder(
         builder: (context, constraints) {

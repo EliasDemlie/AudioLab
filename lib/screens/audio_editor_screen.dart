@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
 import '../models/recording_waveform.dart';
+import '../utils/audio_effect_presets.dart';
 import '../utils/formatters.dart';
 import '../widgets/audio_crop_waveform.dart';
 import '../widgets/circular_eq_dial.dart';
@@ -49,7 +50,6 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   bool _playing = false;
   bool _prepared = false;
   bool _reading = false;
-  bool _showEffects = false;
   int _revision = 0;
 
   Duration get _duration =>
@@ -395,7 +395,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 2),
                     _loading
                         ? const SizedBox(
                             height: 132,
@@ -433,7 +433,6 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                           )
                         : Column(
                             children: [
-                              const SizedBox(height: 12),
                               ValueListenableBuilder<RangeValues>(
                                 valueListenable: _selection,
                                 builder: (context, selection, _) =>
@@ -442,6 +441,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                                       selection: selection,
                                       position: _positionProgress.value,
                                       positionListenable: _positionProgress,
+                                      height: 84,
                                       minimumSelection: _minimumSelection,
                                       enabled: _ready && !_saving,
                                       onSelectionChanged: _changeSelection,
@@ -449,44 +449,9 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                                           _seek(_at(fraction)),
                                     ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) => Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _time(Duration.zero),
-                                          style: theme.textTheme.labelSmall,
-                                        ),
-                                      ),
-                                      if (constraints.maxWidth >= 320 &&
-                                          MediaQuery.textScalerOf(context)
-                                                  .scale(12) <=
-                                              16)
-                                        Expanded(
-                                          child: Text(
-                                            _time(_at(0.5)),
-                                            textAlign: TextAlign.center,
-                                            style: theme.textTheme.labelSmall,
-                                          ),
-                                        ),
-                                      Expanded(
-                                        child: Text(
-                                          _time(_duration),
-                                          textAlign: TextAlign.end,
-                                          style: theme.textTheme.labelSmall,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
                     Text(
                       widget.recording.title,
                       maxLines: 1,
@@ -495,7 +460,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 4),
                     ValueListenableBuilder<RangeValues>(
                       valueListenable: _selection,
                       builder: (context, selection, _) => Column(
@@ -511,7 +476,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Expanded(
                                 child: _BoundaryTime(
                                   label: 'END',
@@ -521,39 +486,30 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 12,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                'Selected ${_time(_at(selection.end - selection.start), precise: true)}',
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: colors.primary,
-                                ),
-                              ),
-                              TextButton.icon(
+                              IconButton(
+                                tooltip: 'Reset selection',
                                 onPressed: enabled
                                     ? () => _changeSelection(
                                         const RangeValues(0, 1),
                                       )
                                     : null,
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 34,
+                                  height: 34,
+                                ),
+                                padding: EdgeInsets.zero,
                                 icon: const Icon(
                                   Icons.restart_alt_rounded,
-                                  size: 18,
+                                  size: 19,
                                 ),
-                                label: const Text('Reset selection'),
                               ),
                             ],
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 2),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -566,14 +522,14 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                               : null,
                           icon: const Icon(Icons.replay_5_rounded, size: 21),
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(40, 40),
+                            minimumSize: const Size(36, 36),
                             padding: EdgeInsets.zero,
                             shape: const CircleBorder(),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 8),
                         SizedBox.square(
-                          dimension: 62,
+                          dimension: 54,
                           child: IconButton.filled(
                             tooltip: _playing ? 'Pause' : 'Play selection',
                             onPressed: canPreview ? _togglePlayback : null,
@@ -591,11 +547,11 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                                     _playing
                                         ? Icons.pause_rounded
                                         : Icons.play_arrow_rounded,
-                                    size: 34,
+                                    size: 29,
                                   ),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 8),
                         IconButton.filledTonal(
                           tooltip: 'Forward 5 seconds',
                           onPressed: canPreview
@@ -605,7 +561,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                               : null,
                           icon: const Icon(Icons.forward_5_rounded, size: 21),
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(40, 40),
+                            minimumSize: const Size(36, 36),
                             padding: EdgeInsets.zero,
                             shape: const CircleBorder(),
                           ),
@@ -613,41 +569,12 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Align(
-                      alignment: Alignment.center,
-                      child: Tooltip(
-                        message: _showEffects ? 'Hide effects' : 'Show effects',
-                        child: TextButton.icon(
-                          onPressed: _saving
-                              ? null
-                              : () => setState(
-                                  () => _showEffects = !_showEffects,
-                                ),
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                          ),
-                          icon: const Icon(Icons.tune_rounded, size: 17),
-                          label: const Text('Effects'),
-                        ),
-                      ),
+                    _InlineEffectsPanel(
+                      gains: _equalizerGains,
+                      busy: _effectsBusy,
+                      onChanged: _applyEqualizer,
                     ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _showEffects
-                          ? _InlineEffectsPanel(
-                              gains: _equalizerGains,
-                              busy: _effectsBusy,
-                              onChanged: _applyEqualizer,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     ValueListenableBuilder<double>(
                       valueListenable: _positionProgress,
                       builder: (context, progress, _) => Text(
@@ -715,7 +642,7 @@ class _InlineEffectsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 14),
+    padding: const EdgeInsets.symmetric(vertical: 6),
     child: Column(
       children: [
         Row(
@@ -738,7 +665,32 @@ class _InlineEffectsPanel extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
+        ValueListenableBuilder<List<double>>(
+          valueListenable: gains,
+          builder: (context, values, _) => ValueListenableBuilder<bool>(
+            valueListenable: busy,
+            builder: (context, isBusy, _) => Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 4,
+              runSpacing: 0,
+              children: [
+                for (final preset in audioEffectPresets.entries)
+                  ChoiceChip(
+                    showCheckmark: false,
+                    label: Text(preset.key, maxLines: 1, softWrap: false),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 3),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: EdgeInsets.zero,
+                    selected: audioEffectPresetFor(values) == preset.key,
+                    onSelected: isBusy ? null : (_) => onChanged(preset.value),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
         ValueListenableBuilder<List<double>>(
           valueListenable: gains,
           builder: (context, values, _) => Row(
