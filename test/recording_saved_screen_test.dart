@@ -10,6 +10,7 @@ import 'package:voicerec/screens/audio_effects_screen.dart';
 import 'package:voicerec/screens/audio_editor_screen.dart';
 import 'package:voicerec/screens/recording_saved_screen.dart';
 import 'package:voicerec/services/recorder_service.dart';
+import 'package:voicerec/widgets/audio_crop_waveform.dart';
 import 'package:voicerec/widgets/circular_eq_dial.dart';
 
 void main() {
@@ -188,32 +189,55 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('playback can restart after a trimmed copy fails to save', (
+  testWidgets('player edits inline and can retry a failed crop save', (
     tester,
   ) async {
     final service = _PlaybackService(failTrim: true);
     await _showPlayer(tester, service);
     await _tapControl(tester, 'Play');
-    final editAction = find.text('Edit audio');
-    await tester.ensureVisible(editAction);
+    await _tapText(tester, 'Edit audio');
     await tester.pumpAndSettle();
-    await tester.tap(editAction);
-    await tester.pumpAndSettle();
+    expect(find.byType(AudioEditorScreen), findsNothing);
+    final waveform = tester.widget<AudioCropWaveform>(
+      find.byType(AudioCropWaveform),
+    );
+    waveform.onSelectionChanged(const RangeValues(0.2, 0.8));
+    await tester.pump();
     await tester.ensureVisible(find.text('Save copy'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save copy'));
     await tester.pumpAndSettle();
 
     expect(find.text('The edited copy could not be saved.'), findsOneWidget);
-    expect(find.byType(AudioEditorScreen), findsOneWidget);
-    expect(service.calls, containsAllInOrder(['play', 'stop', 'trim']));
-    await _tapControl(tester, 'Back to player');
-    await tester.pumpAndSettle();
+    expect(find.byType(RecordingSavedScreen), findsOneWidget);
     expect(find.byType(AudioEditorScreen), findsNothing);
+    expect(
+      tester
+          .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
+          .selection,
+      const RangeValues(0.2, 0.8),
+    );
+    expect(service.calls, containsAllInOrder(['play', 'stop', 'trim']));
+    await _tapText(tester, 'Cancel edit');
     await _tapControl(tester, 'Play');
     expect(service.calls.last, 'play');
     expect(service.calls.where((call) => call == 'play'), hasLength(2));
     expect(find.byTooltip('Pause'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('player opens effects inline without route navigation', (
+    tester,
+  ) async {
+    final service = _PlaybackService();
+    await _showPlayer(tester, service);
+
+    await _tapText(tester, 'Effects');
+
+    expect(find.byType(RecordingSavedScreen), findsOneWidget);
+    expect(find.byType(AudioEffectsScreen), findsNothing);
+    expect(find.byType(CircularEqDial), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -297,6 +321,14 @@ void _setViewport(WidgetTester tester, Size size) {
 
 Future<void> _tapControl(WidgetTester tester, String tooltip) async {
   final control = find.byTooltip(tooltip);
+  await tester.ensureVisible(control);
+  await tester.pumpAndSettle();
+  await tester.tap(control);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapText(WidgetTester tester, String text) async {
+  final control = find.text(text);
   await tester.ensureVisible(control);
   await tester.pumpAndSettle();
   await tester.tap(control);
