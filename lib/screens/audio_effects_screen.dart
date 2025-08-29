@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/recorder_controller.dart';
+import '../utils/audio_effect_presets.dart';
 import '../widgets/circular_eq_dial.dart';
 
 class AudioEffectsScreen extends StatefulWidget {
@@ -14,12 +15,6 @@ class AudioEffectsScreen extends StatefulWidget {
 }
 
 class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
-  static const _presets = <String, List<double>>{
-    'Flat': [0, 0, 0],
-    'Voice': [-0.12, 0.22, 0.18],
-    'Warm': [0.28, 0.08, -0.14],
-    'Bright': [-0.12, 0.12, 0.32],
-  };
   final ValueNotifier<List<double>> _gains = ValueNotifier(const [
     0.0,
     0.0,
@@ -51,17 +46,6 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
     _gains.dispose();
     _busy.dispose();
     super.dispose();
-  }
-
-  String _selectedPreset(List<double> gains) {
-    for (final entry in _presets.entries) {
-      var matches = true;
-      for (var i = 0; i < 3; i++) {
-        if ((entry.value[i] - gains[i]).abs() > 0.01) matches = false;
-      }
-      if (matches) return entry.key;
-    }
-    return '';
   }
 
   @override
@@ -97,11 +81,11 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final entry in _presets.entries)
+                  for (final entry in audioEffectPresets.entries)
                     ChoiceChip(
                       showCheckmark: false,
                       label: Text(entry.key, maxLines: 1, softWrap: false),
-                      selected: _selectedPreset(gains) == entry.key,
+                      selected: audioEffectPresetFor(gains) == entry.key,
                       onSelected: busy ? null : (_) => _apply(entry.value),
                     ),
                 ],
