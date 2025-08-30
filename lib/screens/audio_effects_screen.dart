@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../controllers/recorder_controller.dart';
 import '../utils/audio_effect_presets.dart';
-import '../widgets/circular_eq_dial.dart';
+import '../widgets/equalizer_dials.dart';
 
 class AudioEffectsScreen extends StatefulWidget {
   const AudioEffectsScreen({super.key, required this.controller});
@@ -95,31 +95,8 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
           const SizedBox(height: 24),
           ValueListenableBuilder<List<double>>(
             valueListenable: _gains,
-            builder: (context, gains, _) => Row(
-              children: [
-                Expanded(
-                  child: CircularEqDial(
-                    label: 'Bass',
-                    value: gains[0],
-                    onChanged: (value) => _apply([value, gains[1], gains[2]]),
-                  ),
-                ),
-                Expanded(
-                  child: CircularEqDial(
-                    label: 'Presence',
-                    value: gains[1],
-                    onChanged: (value) => _apply([gains[0], value, gains[2]]),
-                  ),
-                ),
-                Expanded(
-                  child: CircularEqDial(
-                    label: 'Treble',
-                    value: gains[2],
-                    onChanged: (value) => _apply([gains[0], gains[1], value]),
-                  ),
-                ),
-              ],
-            ),
+            builder: (context, gains, _) =>
+                EqualizerDials(gains: gains, onChanged: _apply),
           ),
           const SizedBox(height: 24),
           Card(

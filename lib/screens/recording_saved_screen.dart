@@ -9,7 +9,7 @@ import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
 import '../utils/audio_effect_presets.dart';
 import '../utils/formatters.dart';
-import '../widgets/circular_eq_dial.dart';
+import '../widgets/equalizer_dials.dart';
 import 'audio_editor_screen.dart';
 
 class RecordingSavedScreen extends StatefulWidget {
@@ -651,32 +651,8 @@ class _AlwaysVisibleEffects extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: CircularEqDial(
-                label: 'Bass',
-                value: values[0],
-                onChanged: (value) => onChanged([value, values[1], values[2]]),
-              ),
-            ),
-            Expanded(
-              child: CircularEqDial(
-                label: 'Presence',
-                value: values[1],
-                onChanged: (value) => onChanged([values[0], value, values[2]]),
-              ),
-            ),
-            Expanded(
-              child: CircularEqDial(
-                label: 'Treble',
-                value: values[2],
-                onChanged: (value) => onChanged([values[0], values[1], value]),
-              ),
-            ),
-          ],
-        ),
+        const SizedBox(height: 16),
+        EqualizerDials(gains: values, onChanged: onChanged),
       ],
     ),
   );
