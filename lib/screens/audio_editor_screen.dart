@@ -340,14 +340,6 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
       ..showSnackBar(SnackBar(content: Text(_errorMessage(error, fallback))));
   }
 
-  String _time(Duration duration, {bool precise = false}) {
-    final formatted = formatDuration(duration);
-    final time = duration.inHours > 0 ? formatted : formatted.substring(3);
-    return precise
-        ? '$time.${duration.inMilliseconds.remainder(1000) ~/ 100}'
-        : time;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -363,14 +355,25 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
       canPop: !_saving && !_busy,
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: 'Back to player',
-            onPressed: _saving || _busy
-                ? null
-                : () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded),
+          leadingWidth: 76,
+          leading: Center(
+            child: IconButton.filledTonal(
+              tooltip: 'Back to player',
+              onPressed: _saving || _busy
+                  ? null
+                  : () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
+              style: IconButton.styleFrom(
+                backgroundColor: colors.onSurface.withValues(alpha: 0.06),
+                foregroundColor: colors.onSurface,
+                shape: const CircleBorder(),
+                side: BorderSide(
+                  color: colors.onSurface.withValues(alpha: 0.08),
+                ),
+              ),
+            ),
           ),
-          title: const Text('Edit audio'),
+          title: Text('Edit audio', style: theme.textTheme.titleMedium),
           centerTitle: true,
           actions: [
             TextButton(
@@ -389,9 +392,9 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
           top: false,
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
+              constraints: const BoxConstraints(maxWidth: 480),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                padding: const EdgeInsets.fromLTRB(24, 10, 24, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -441,7 +444,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                                       selection: selection,
                                       position: _positionProgress.value,
                                       positionListenable: _positionProgress,
-                                      height: 84,
+                                      height: 124,
                                       minimumSelection: _minimumSelection,
                                       enabled: _ready && !_saving,
                                       onSelectionChanged: _changeSelection,
@@ -452,139 +455,122 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                             ],
                           ),
                     const SizedBox(height: 6),
-                    Text(
-                      widget.recording.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
                     ValueListenableBuilder<RangeValues>(
                       valueListenable: _selection,
-                      builder: (context, selection, _) => Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _BoundaryTime(
-                                  label: 'START',
-                                  value: _time(
-                                    _at(selection.start),
-                                    precise: true,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: _BoundaryTime(
-                                  label: 'END',
-                                  value: _time(
-                                    _at(selection.end),
-                                    precise: true,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Reset selection',
-                                onPressed: enabled
-                                    ? () => _changeSelection(
-                                        const RangeValues(0, 1),
-                                      )
-                                    : null,
-                                visualDensity: VisualDensity.compact,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 34,
-                                  height: 34,
-                                ),
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  Icons.restart_alt_rounded,
-                                  size: 19,
-                                ),
-                              ),
-                            ],
+                      builder: (context, selection, _) =>
+                          _EditorPlaybackProgress(
+                            position: _positionProgress,
+                            duration: _duration,
+                            selection: selection,
+                            enabled: canPreview,
+                            onSeek: _seek,
                           ),
-                        ],
-                      ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton.filledTonal(
+                        IconButton(
+                          tooltip: 'Reset selection',
+                          onPressed: enabled
+                              ? () => _changeSelection(const RangeValues(0, 1))
+                              : null,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 36,
+                            height: 36,
+                          ),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.restart_alt_rounded, size: 19),
+                        ),
+                        _PreviewSkipButton(
                           tooltip: 'Back 5 seconds',
                           onPressed: canPreview
                               ? () => _seek(
                                   _position - const Duration(seconds: 5),
                                 )
                               : null,
-                          icon: const Icon(Icons.replay_5_rounded, size: 21),
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(36, 36),
-                            padding: EdgeInsets.zero,
-                            shape: const CircleBorder(),
-                          ),
+                          icon: Icons.replay_5_rounded,
                         ),
-                        const SizedBox(width: 8),
-                        SizedBox.square(
-                          dimension: 54,
-                          child: IconButton.filled(
-                            tooltip: _playing ? 'Pause' : 'Play selection',
-                            onPressed: canPreview ? _togglePlayback : null,
-                            style: IconButton.styleFrom(
-                              shape: const CircleBorder(),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: colors.primary.withValues(alpha: 0.18),
                             ),
-                            icon: _busy
-                                ? const SizedBox.square(
-                                    dimension: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Icon(
-                                    _playing
-                                        ? Icons.pause_rounded
-                                        : Icons.play_arrow_rounded,
-                                    size: 29,
-                                  ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colors.primary.withValues(
+                                  alpha: _playing ? 0.2 : 0.1,
+                                ),
+                                blurRadius: 30,
+                                spreadRadius: -2,
+                              ),
+                            ],
+                          ),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  colors.primary,
+                                  Color.lerp(
+                                    colors.primary,
+                                    colors.tertiary,
+                                    0.3,
+                                  )!,
+                                ],
+                              ),
+                            ),
+                            child: SizedBox.square(
+                              dimension: 56,
+                              child: IconButton(
+                                tooltip: _playing ? 'Pause' : 'Play selection',
+                                onPressed: canPreview ? _togglePlayback : null,
+                                style: IconButton.styleFrom(
+                                  shape: const CircleBorder(),
+                                  foregroundColor: colors.onPrimary,
+                                  disabledForegroundColor: colors.onPrimary,
+                                ),
+                                icon: _busy
+                                    ? SizedBox.square(
+                                        dimension: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: colors.onPrimary,
+                                        ),
+                                      )
+                                    : Icon(
+                                        _playing
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        size: 32,
+                                      ),
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton.filledTonal(
+                        _PreviewSkipButton(
                           tooltip: 'Forward 5 seconds',
                           onPressed: canPreview
                               ? () => _seek(
                                   _position + const Duration(seconds: 5),
                                 )
                               : null,
-                          icon: const Icon(Icons.forward_5_rounded, size: 21),
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(36, 36),
-                            padding: EdgeInsets.zero,
-                            shape: const CircleBorder(),
-                          ),
+                          icon: Icons.forward_5_rounded,
                         ),
+                        const SizedBox(width: 36),
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 12),
                     _InlineEffectsPanel(
                       gains: _equalizerGains,
                       busy: _effectsBusy,
                       onChanged: _applyEqualizer,
-                    ),
-                    const SizedBox(height: 4),
-                    ValueListenableBuilder<double>(
-                      valueListenable: _positionProgress,
-                      builder: (context, progress, _) => Text(
-                        '${_time(Duration(milliseconds: (_duration.inMilliseconds * progress).round()), precise: true)} / ${_time(_duration)}',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -597,34 +583,174 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   }
 }
 
-class _BoundaryTime extends StatelessWidget {
-  const _BoundaryTime({required this.label, required this.value});
+class _EditorPlaybackProgress extends StatefulWidget {
+  const _EditorPlaybackProgress({
+    required this.position,
+    required this.duration,
+    required this.selection,
+    required this.enabled,
+    required this.onSeek,
+  });
 
-  final String label;
-  final String value;
+  final ValueListenable<double> position;
+  final Duration duration;
+  final RangeValues selection;
+  final bool enabled;
+  final ValueChanged<Duration> onSeek;
+
+  @override
+  State<_EditorPlaybackProgress> createState() =>
+      _EditorPlaybackProgressState();
+}
+
+class _EditorPlaybackProgressState extends State<_EditorPlaybackProgress> {
+  double? _scrubProgress;
+
+  @override
+  void didUpdateWidget(covariant _EditorPlaybackProgress oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled ||
+        oldWidget.selection != widget.selection ||
+        oldWidget.duration != widget.duration) {
+      _scrubProgress = null;
+    }
+  }
+
+  String _time(Duration duration) {
+    final formatted = formatDuration(duration);
+    final time = duration.inHours > 0 ? formatted : formatted.substring(3);
+    return '$time.${duration.inMilliseconds.remainder(1000) ~/ 100}';
+  }
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<double>(
+    valueListenable: widget.position,
+    builder: (context, position, _) {
+      final theme = Theme.of(context);
+      final colors = theme.colorScheme;
+      final start = (widget.duration.inMilliseconds * widget.selection.start)
+          .round();
+      final end = (widget.duration.inMilliseconds * widget.selection.end)
+          .round();
+      final length = end - start;
+      final progress =
+          _scrubProgress ??
+          (length > 0
+              ? ((position * widget.duration.inMilliseconds - start) / length)
+                    .clamp(0.0, 1.0)
+              : 0.0);
+      Duration at(double value) =>
+          Duration(milliseconds: start + (length * value).round());
+      final canSeek = widget.enabled && length > 0;
+      final timeStyle = theme.textTheme.labelMedium?.copyWith(
+        color: colors.onSurfaceVariant,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+      return Column(
+        children: [
+          Semantics(
+            label: 'Selection playback position',
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 5,
+                activeTrackColor: colors.primary,
+                inactiveTrackColor: colors.onSurface.withValues(alpha: 0.1),
+                disabledActiveTrackColor: colors.primary.withValues(alpha: 0.4),
+                disabledInactiveTrackColor: colors.onSurface.withValues(
+                  alpha: 0.08,
+                ),
+                thumbColor: colors.primary,
+                overlayColor: colors.primary.withValues(alpha: 0.12),
+                thumbShape: RoundSliderThumbShape(
+                  enabledThumbRadius: _scrubProgress == null ? 6 : 8,
+                  elevation: 0,
+                  pressedElevation: 0,
+                ),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+                trackShape: const RoundedRectSliderTrackShape(),
+              ),
+              child: Slider(
+                key: const ValueKey('editor-playback-progress'),
+                value: progress,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                semanticFormatterCallback: (value) =>
+                    '${_time(at(value))} of ${_time(Duration(milliseconds: end))}',
+                onChangeStart: canSeek
+                    ? (value) => setState(() => _scrubProgress = value)
+                    : null,
+                onChanged: canSeek
+                    ? (value) => setState(() => _scrubProgress = value)
+                    : null,
+                onChangeEnd: canSeek
+                    ? (value) {
+                        widget.onSeek(at(value));
+                        setState(() => _scrubProgress = null);
+                      }
+                    : null,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _time(at(progress)),
+                    key: const ValueKey('editor-playback-position'),
+                    style: timeStyle?.copyWith(color: colors.primary),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    _time(Duration(milliseconds: end)),
+                    key: const ValueKey('editor-playback-end'),
+                    style: timeStyle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _PreviewSkipButton extends StatelessWidget {
+  const _PreviewSkipButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: colors.onSurfaceVariant,
-            letterSpacing: 1.2,
-          ),
+    final colors = Theme.of(context).colorScheme;
+    return SizedBox.square(
+      dimension: 38,
+      child: IconButton.filledTonal(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon, size: 19),
+        style: IconButton.styleFrom(
+          backgroundColor: colors.onSurface.withValues(alpha: 0.05),
+          foregroundColor: colors.onSurface,
+          shape: const CircleBorder(),
+          side: BorderSide(color: colors.onSurface.withValues(alpha: 0.08)),
         ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
