@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
-import '../utils/audio_effect_presets.dart';
 import '../utils/formatters.dart';
-import '../widgets/equalizer_dials.dart';
+import '../widgets/audio_equalizer_panel.dart';
+import '../widgets/audio_playback_layout.dart';
+import '../widgets/audio_transport_controls.dart';
 import 'audio_editor_screen.dart';
 
 class RecordingSavedScreen extends StatefulWidget {
@@ -229,7 +229,7 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
         leading: Center(
           child: IconButton.filledTonal(
             tooltip: 'Back to library',
-            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
+            icon: const Icon(Icons.arrow_back_rounded, size: 28),
             onPressed: () => Navigator.of(context).pop(),
             style: IconButton.styleFrom(
               backgroundColor: colors.onSurface.withValues(alpha: 0.06),
@@ -254,65 +254,43 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
         ),
         centerTitle: true,
       ),
-      body: SafeArea(
-        top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
-              children: [
-                ValueListenableBuilder<PlaybackState>(
-                  valueListenable: _playbackState,
-                  builder: (context, playback, _) => ValueListenableBuilder(
-                    valueListenable: _waveformPeaks,
-                    builder: (context, peaks, _) {
-                      final durationMillis = _duration.inMilliseconds;
-                      final progress = durationMillis > 0
-                          ? (playback.position.inMilliseconds / durationMillis)
-                                .clamp(0.0, 1.0)
-                          : 0.0;
-                      return SizedBox(
-                        width: double.infinity,
-                        height: 124,
-                        child: _PlaybackWaveform(
-                          peaks: peaks,
-                          progress: progress,
-                          isPlaying: playback.isPlaying,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  _recording.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                _PlaybackControls(
-                  state: _playbackState,
-                  busy: _playbackBusy,
-                  duration: _recording.duration,
-                  isEditing: _editing,
-                  onEdit: _editAudio,
-                  onShare: () => widget.controller.share(_recording),
-                  onToggle: _togglePlayback,
-                  onSeek: _seek,
-                ),
-                const SizedBox(height: 12),
-                _AlwaysVisibleEffects(
-                  gains: _equalizerGains,
-                  busy: _equalizerBusy,
-                  onChanged: _applyEqualizer,
-                ),
-              ],
-            ),
+      body: AudioPlaybackLayout(
+        title: _recording.title,
+        waveformBuilder: (height) => ValueListenableBuilder<PlaybackState>(
+          valueListenable: _playbackState,
+          builder: (context, playback, _) => ValueListenableBuilder(
+            valueListenable: _waveformPeaks,
+            builder: (context, peaks, _) {
+              final durationMillis = _duration.inMilliseconds;
+              final progress = durationMillis > 0
+                  ? (playback.position.inMilliseconds / durationMillis).clamp(
+                      0.0,
+                      1.0,
+                    )
+                  : 0.0;
+              return _PlaybackWaveform(
+                peaks: peaks,
+                progress: progress,
+                isPlaying: playback.isPlaying,
+                height: height,
+              );
+            },
           ),
+        ),
+        controls: _PlaybackControls(
+          state: _playbackState,
+          busy: _playbackBusy,
+          duration: _recording.duration,
+          isEditing: _editing,
+          onEdit: _editAudio,
+          onShare: () => widget.controller.share(_recording),
+          onToggle: _togglePlayback,
+          onSeek: _seek,
+        ),
+        effects: AudioEqualizerPanel(
+          gains: _equalizerGains,
+          busy: _equalizerBusy,
+          onChanged: _applyEqualizer,
         ),
       ),
     );
@@ -439,221 +417,56 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                 Text(_timeLabel(total), style: timeStyle),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SizedBox(
-                  width: 52,
-                  child: TextButton(
-                    onPressed: isBusy || widget.isEditing
-                        ? null
-                        : widget.onEdit,
-                    style: TextButton.styleFrom(
-                      minimumSize: Size.zero,
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: const Text(
-                      'Edit',
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.clip,
-                    ),
+            SizedBox(height: AudioPlaybackLayout.controlSpacing(context)),
+            AudioTransportControls(
+              playing: playback.isPlaying,
+              busy: isBusy,
+              playTooltip: playback.isPlaying ? 'Pause' : 'Play',
+              onToggle: isBusy || widget.isEditing ? null : widget.onToggle,
+              backTooltip: 'Back 10 seconds',
+              forwardTooltip: 'Forward 10 seconds',
+              backIcon: Icons.replay_10_rounded,
+              forwardIcon: Icons.forward_10_rounded,
+              onBack: canSeek
+                  ? () => widget.onSeek(position - const Duration(seconds: 10))
+                  : null,
+              onForward: canSeek
+                  ? () => widget.onSeek(position + const Duration(seconds: 10))
+                  : null,
+              leading: SizedBox(
+                width: 52,
+                child: TextButton(
+                  onPressed: isBusy || widget.isEditing ? null : widget.onEdit,
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    alignment: Alignment.centerLeft,
+                  ),
+                  child: const Text(
+                    'Edit',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
                   ),
                 ),
-                _SkipButton(
-                  tooltip: 'Back 10 seconds',
-                  icon: Icons.replay_10_rounded,
-                  onPressed: canSeek
-                      ? () => widget.onSeek(
-                          position - const Duration(seconds: 10),
-                        )
-                      : null,
+              ),
+              trailing: IconButton(
+                tooltip: 'Share recording',
+                onPressed: isBusy || widget.isEditing ? null : widget.onShare,
+                constraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
                 ),
-                const SizedBox(width: 4),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: colors.primary.withValues(alpha: 0.18),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colors.primary.withValues(
-                          alpha: playback.isPlaying ? 0.2 : 0.1,
-                        ),
-                        blurRadius: 30,
-                        spreadRadius: -2,
-                      ),
-                    ],
-                  ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          colors.primary,
-                          Color.lerp(colors.primary, colors.tertiary, 0.3)!,
-                        ],
-                      ),
-                    ),
-                    child: SizedBox.square(
-                      dimension: 56,
-                      child: IconButton(
-                        tooltip: playback.isPlaying ? 'Pause' : 'Play',
-                        onPressed: isBusy || widget.isEditing
-                            ? null
-                            : widget.onToggle,
-                        style: IconButton.styleFrom(
-                          shape: const CircleBorder(),
-                          foregroundColor: colors.onPrimary,
-                          disabledForegroundColor: colors.onPrimary,
-                        ),
-                        icon: isBusy
-                            ? SizedBox.square(
-                                dimension: 28,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: colors.onPrimary,
-                                ),
-                              )
-                            : AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 160),
-                                child: Icon(
-                                  playback.isPlaying
-                                      ? Icons.pause_rounded
-                                      : Icons.play_arrow_rounded,
-                                  key: ValueKey(playback.isPlaying),
-                                  size: 32,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                _SkipButton(
-                  tooltip: 'Forward 10 seconds',
-                  icon: Icons.forward_10_rounded,
-                  onPressed: canSeek
-                      ? () => widget.onSeek(
-                          position + const Duration(seconds: 10),
-                        )
-                      : null,
-                ),
-                IconButton(
-                  tooltip: 'Share recording',
-                  onPressed: isBusy || widget.isEditing ? null : widget.onShare,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 36,
-                    height: 36,
-                  ),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.ios_share_rounded, size: 18),
-                ),
-              ],
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.ios_share_rounded, size: 18),
+              ),
             ),
           ],
         );
       },
-    ),
-  );
-}
-
-class _SkipButton extends StatelessWidget {
-  const _SkipButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return SizedBox.square(
-      dimension: 38,
-      child: IconButton.filledTonal(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(icon, size: 19),
-        style: IconButton.styleFrom(
-          backgroundColor: colors.onSurface.withValues(alpha: 0.05),
-          foregroundColor: colors.onSurface,
-          shape: const CircleBorder(),
-          side: BorderSide(color: colors.onSurface.withValues(alpha: 0.08)),
-        ),
-      ),
-    );
-  }
-}
-
-class _AlwaysVisibleEffects extends StatelessWidget {
-  const _AlwaysVisibleEffects({
-    required this.gains,
-    required this.busy,
-    required this.onChanged,
-  });
-
-  final ValueListenable<List<double>> gains;
-  final ValueListenable<bool> busy;
-  final ValueChanged<List<double>> onChanged;
-
-  @override
-  Widget build(BuildContext context) => ValueListenableBuilder<List<double>>(
-    valueListenable: gains,
-    builder: (context, values, _) => Column(
-      children: [
-        Row(
-          children: [
-            Text(
-              'EQUALIZER',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const Spacer(),
-            ValueListenableBuilder<bool>(
-              valueListenable: busy,
-              builder: (context, isBusy, _) => isBusy
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ValueListenableBuilder<bool>(
-          valueListenable: busy,
-          builder: (context, isBusy, _) => Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final preset in audioEffectPresets.entries)
-                ChoiceChip(
-                  showCheckmark: false,
-                  label: Text(preset.key, maxLines: 1, softWrap: false),
-                  selected: audioEffectPresetFor(values) == preset.key,
-                  onSelected: isBusy ? null : (_) => onChanged(preset.value),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        EqualizerDials(gains: values, onChanged: onChanged),
-      ],
     ),
   );
 }
@@ -663,6 +476,7 @@ class _PlaybackWaveform extends StatelessWidget {
     required this.peaks,
     required this.progress,
     required this.isPlaying,
+    required this.height,
   });
 
   static const _barCount = 31;
@@ -670,6 +484,7 @@ class _PlaybackWaveform extends StatelessWidget {
   final List<double> peaks;
   final double progress;
   final bool isPlaying;
+  final double height;
 
   double _amplitudeForBar(int barIndex) {
     if (peaks.isEmpty) return 0.12;
@@ -697,7 +512,7 @@ class _PlaybackWaveform extends StatelessWidget {
       label: isPlaying ? 'Playing waveform' : 'Recording waveform',
       child: SizedBox(
         width: double.infinity,
-        height: 124,
+        height: height,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -706,7 +521,7 @@ class _PlaybackWaveform extends StatelessWidget {
               AnimatedContainer(
                 key: ValueKey('playback-waveform-bar-$index'),
                 width: 4,
-                height: 5 + _amplitudeForBar(index) * 78,
+                height: (5 + _amplitudeForBar(index) * 78) * height / 124,
                 duration: const Duration(milliseconds: 240),
                 curve: Curves.easeInOut,
                 decoration: BoxDecoration(
