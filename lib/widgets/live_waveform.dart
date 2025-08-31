@@ -56,20 +56,25 @@ class _LiveWaveformState extends State<LiveWaveform> {
   }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 118,
-    width: double.infinity,
-    child: CustomPaint(
-      painter: _WaveformPainter(
-        samples: _samples,
-        colors: [
-          Theme.of(context).colorScheme.primary,
-          const Color(0xFF36D9DF),
-          const Color(0xFF8178FF),
-        ],
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    return SizedBox(
+      height: 118,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _WaveformPainter(
+          samples: _samples,
+          colors: [
+            colors.primary,
+            dark ? const Color(0xFF36D9DF) : colors.secondary,
+            dark ? const Color(0xFF8178FF) : colors.tertiary,
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _WaveformPainter extends CustomPainter {
@@ -112,15 +117,25 @@ class AudioLevelMeter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
     final clipping = level >= 0.88;
     final activeCount = (math.sqrt(level) * 22).ceil().clamp(0, 22);
-    const palette = [
-      Color(0xFF00D6CF),
-      Color(0xFF24D98B),
-      Color(0xFFF0D638),
-      Color(0xFFFFA62B),
-      Color(0xFF9A45F5),
-    ];
+    final palette = dark
+        ? const [
+            Color(0xFF00D6CF),
+            Color(0xFF24D98B),
+            Color(0xFFF0D638),
+            Color(0xFFFFA62B),
+            Color(0xFF9A45F5),
+          ]
+        : [
+            theme.colorScheme.primary,
+            const Color(0xFF238657),
+            const Color(0xFFA77A10),
+            const Color(0xFFBA671A),
+            theme.colorScheme.tertiary,
+          ];
     return Semantics(
       label: clipping
           ? 'Microphone level high, clipping risk'
@@ -140,17 +155,19 @@ class AudioLevelMeter extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: i < activeCount
                         ? (clipping && i > 18
-                              ? Colors.redAccent
+                              ? dark
+                                    ? Colors.redAccent
+                                    : theme.colorScheme.error
                               : palette[(i * palette.length) ~/ 22])
                         : palette[(i * palette.length) ~/ 22].withValues(
-                            alpha: 0.18,
+                            alpha: dark ? 0.18 : 0.12,
                           ),
                     borderRadius: BorderRadius.circular(4),
                     boxShadow: i < activeCount
                         ? [
                             BoxShadow(
                               color: palette[(i * palette.length) ~/ 22]
-                                  .withValues(alpha: 0.22),
+                                  .withValues(alpha: dark ? 0.22 : 0.1),
                               blurRadius: 5,
                             ),
                           ]
