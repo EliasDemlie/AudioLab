@@ -27,7 +27,9 @@ class RecordControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     final isPaused = status == RecorderStatus.paused;
     final canControl =
         !isBusy &&
@@ -59,9 +61,7 @@ class RecordControls extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              status == RecorderStatus.stopping
-                  ? 'Saving…'
-                  : 'Record',
+              status == RecorderStatus.stopping ? 'Saving…' : 'Record',
               style: Theme.of(context).textTheme.labelLarge,
             ),
           ],
@@ -86,7 +86,9 @@ class RecordControls extends StatelessWidget {
               child: _RoundControl(
                 label: 'Stop',
                 icon: Icons.stop_rounded,
-                color: const Color(0xFF17304A),
+                color: dark
+                    ? const Color(0xFF17304A)
+                    : colors.primary.withValues(alpha: 0.1),
                 foreground: colors.onSurface,
                 onPressed: canControl ? onStop : null,
               ),
@@ -155,58 +157,82 @@ class _RecordingMicIndicator extends StatelessWidget {
   final VoidCallback? onPressed;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: isRecording ? 'Pause recording' : 'Resume recording',
-    child: Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          width: 112,
-          height: 112,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isRecording
-                  ? const [Color(0xFF28E3D0), Color(0xFF00B7B8)]
-                  : const [Color(0xFF164A5A), Color(0xFF10384D)],
-            ),
-            boxShadow: isRecording
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFF00D5C6).withValues(alpha: 0.24),
-                      blurRadius: 26,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                : const [],
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Icon(
-                isRecording ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 48,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final foreground = dark
+        ? Colors.white
+        : isRecording
+        ? colors.onPrimary
+        : colors.primary;
+    return Semantics(
+      button: true,
+      label: isRecording ? 'Pause recording' : 'Resume recording',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: 112,
+            height: 112,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: dark
+                    ? isRecording
+                          ? const [Color(0xFF28E3D0), Color(0xFF00B7B8)]
+                          : const [Color(0xFF164A5A), Color(0xFF10384D)]
+                    : isRecording
+                    ? [
+                        colors.primary,
+                        Color.lerp(colors.primary, colors.secondary, 0.3)!,
+                      ]
+                    : [
+                        colors.primary.withValues(alpha: 0.14),
+                        colors.primary.withValues(alpha: 0.07),
+                      ],
               ),
-              if (isBusy && !isStopPending)
-                const SizedBox.square(
-                  dimension: 82,
-                  child: CircularProgressIndicator(
-                    color: Colors.white70,
-                    strokeWidth: 2,
-                  ),
+              border: dark
+                  ? null
+                  : Border.all(color: colors.primary.withValues(alpha: 0.12)),
+              boxShadow: isRecording
+                  ? [
+                      BoxShadow(
+                        color: (dark ? const Color(0xFF00D5C6) : colors.primary)
+                            .withValues(alpha: dark ? 0.24 : 0.14),
+                        blurRadius: 26,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  isRecording ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: foreground,
+                  size: 48,
                 ),
-            ],
+                if (isBusy && !isStopPending)
+                  SizedBox.square(
+                    dimension: 82,
+                    child: CircularProgressIndicator(
+                      color: foreground.withValues(alpha: 0.7),
+                      strokeWidth: 2,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
