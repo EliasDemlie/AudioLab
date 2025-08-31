@@ -6,13 +6,13 @@ class AudioPlaybackLayout extends StatelessWidget {
     required this.title,
     required this.waveformBuilder,
     required this.controls,
-    required this.effects,
+    this.effects,
   });
 
   final String title;
   final Widget Function(double height) waveformBuilder;
   final Widget controls;
-  final Widget effects;
+  final Widget? effects;
 
   static bool isCompact(BuildContext context) =>
       MediaQuery.sizeOf(context).height < 640;
@@ -50,8 +50,10 @@ class AudioPlaybackLayout extends StatelessWidget {
                 ),
                 SizedBox(height: compact ? 2 : 4),
                 controls,
-                SizedBox(height: controlSpacing(context)),
-                effects,
+                if (effects != null) ...[
+                  SizedBox(height: controlSpacing(context)),
+                  effects!,
+                ],
               ],
             ),
           ),

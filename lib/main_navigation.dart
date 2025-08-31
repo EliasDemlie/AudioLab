@@ -11,7 +11,9 @@ import 'widgets/rename_recording_sheet.dart';
 
 /// App shell. Tab changes only update the index; IndexedStack retains each tab.
 class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+  const MainNavigation({super.key, this.onToggleTheme});
+
+  final VoidCallback? onToggleTheme;
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
@@ -125,7 +127,25 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('VoicePro'), centerTitle: false),
+    appBar: AppBar(
+      title: const Text('VoicePro'),
+      centerTitle: false,
+      actions: [
+        if (widget.onToggleTheme != null)
+          IconButton(
+            tooltip: Theme.of(context).brightness == Brightness.dark
+                ? 'Switch to light mode'
+                : 'Switch to dark mode',
+            onPressed: widget.onToggleTheme,
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined,
+            ),
+          ),
+        const SizedBox(width: 8),
+      ],
+    ),
     body: SafeArea(
       child: IndexedStack(
         index: _index,
