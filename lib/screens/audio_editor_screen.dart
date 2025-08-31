@@ -10,6 +10,7 @@ import '../models/recording.dart';
 import '../models/recording_waveform.dart';
 import '../utils/formatters.dart';
 import '../widgets/audio_crop_waveform.dart';
+import '../widgets/audio_effect_button.dart';
 import '../widgets/audio_equalizer_panel.dart';
 import '../widgets/audio_playback_layout.dart';
 import '../widgets/audio_transport_controls.dart';
@@ -51,6 +52,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   bool _playing = false;
   bool _prepared = false;
   bool _reading = false;
+  bool _effectsVisible = false;
   int _revision = 0;
 
   Duration get _duration =>
@@ -480,15 +482,23 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                       : null,
                   icon: Icons.restart_alt_rounded,
                 ),
-                trailing: const SizedBox.shrink(),
+                trailing: AudioEffectButton(
+                  visible: _effectsVisible,
+                  onPressed: _saving
+                      ? null
+                      : () =>
+                            setState(() => _effectsVisible = !_effectsVisible),
+                ),
               ),
             ],
           ),
-          effects: AudioEqualizerPanel(
-            gains: _equalizerGains,
-            busy: _effectsBusy,
-            onChanged: _applyEqualizer,
-          ),
+          effects: _effectsVisible
+              ? AudioEqualizerPanel(
+                  gains: _equalizerGains,
+                  busy: _effectsBusy,
+                  onChanged: _applyEqualizer,
+                )
+              : null,
         ),
       ),
     );
