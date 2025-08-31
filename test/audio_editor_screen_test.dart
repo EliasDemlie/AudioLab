@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:voicerec/app_theme.dart';
 import 'package:voicerec/controllers/recorder_controller.dart';
 import 'package:voicerec/models/recording.dart';
 import 'package:voicerec/models/recording_waveform.dart';
@@ -13,42 +14,101 @@ import 'package:voicerec/widgets/circular_eq_dial.dart';
 import 'package:voicerec/widgets/audio_crop_waveform.dart';
 
 void main() {
-  testWidgets('editor keeps crop local with visible preset and EQ controls', (
+  testWidgets(
+    'editor keeps crop local and retains toggled preset and EQ gains',
+    (tester) async {
+      final service = _EditorService();
+      await _showEditor(tester, service);
+
+      final save = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Save copy'),
+      );
+      expect(find.text(_recording.title), findsNothing);
+      expect(find.text('START'), findsNothing);
+      expect(find.text('END'), findsNothing);
+      final waveform = tester.widget<AudioCropWaveform>(
+        find.byType(AudioCropWaveform),
+      );
+      waveform.onSelectionChanged(const RangeValues(0.25, 0.75));
+      await tester.pump();
+
+      expect(
+        tester.widget<TextButton>(find.widgetWithText(TextButton, 'Save copy')),
+        same(save),
+      );
+      expect(
+        tester
+            .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
+            .selection,
+        const RangeValues(0.25, 0.75),
+      );
+
+      expect(find.byType(CircularEqDial), findsNothing);
+      expect(find.byType(ChoiceChip), findsNothing);
+      expect(find.widgetWithText(TextButton, 'Effect'), findsOneWidget);
+      await _tapControl(tester, 'Show effects');
+      expect(find.byType(CircularEqDial), findsNWidgets(3));
+      expect(find.byType(ChoiceChip), findsNWidgets(4));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Voice'));
+      await tester.pumpAndSettle();
+      expect(service.equalizerUpdates, hasLength(1));
+      expect(service.equalizerUpdates.single, [-0.12, 0.22, 0.18]);
+      await _tapControl(tester, 'Hide effects');
+      expect(find.byType(CircularEqDial), findsNothing);
+      expect(find.byType(ChoiceChip), findsNothing);
+      await _tapControl(tester, 'Show effects');
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Voice'))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester
+            .widgetList<CircularEqDial>(find.byType(CircularEqDial))
+            .map((dial) => dial.value),
+        [-0.12, 0.22, 0.18],
+      );
+      expect(service.equalizerUpdates, hasLength(1));
+      expect(
+        tester
+            .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
+            .selection,
+        const RangeValues(0.25, 0.75),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('toggling editor effects preserves an active selection preview', (
     tester,
   ) async {
     final service = _EditorService();
     await _showEditor(tester, service);
-
-    final save = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'Save copy'),
-    );
-    expect(find.text(_recording.title), findsNothing);
-    expect(find.text('START'), findsNothing);
-    expect(find.text('END'), findsNothing);
-    final waveform = tester.widget<AudioCropWaveform>(
-      find.byType(AudioCropWaveform),
-    );
-    waveform.onSelectionChanged(const RangeValues(0.25, 0.75));
+    await _select(tester, const RangeValues(0.25, 0.75));
+    await _tapControl(tester, 'Play selection');
+    service.position = const Duration(seconds: 8);
+    await tester.pump(const Duration(milliseconds: 120));
     await tester.pump();
+    final previewCalls = List<String>.of(service.calls);
 
-    expect(
-      tester.widget<TextButton>(find.widgetWithText(TextButton, 'Save copy')),
-      same(save),
-    );
+    await _tapControl(tester, 'Show effects');
+    expect(find.byType(CircularEqDial), findsNWidgets(3));
+    await _tapControl(tester, 'Hide effects');
+
+    expect(find.byType(CircularEqDial), findsNothing);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    expect(service.isPlaying, isTrue);
+    expect(service.position, const Duration(seconds: 8));
+    expect(service.calls, previewCalls);
+    expect(tester.widget<Slider>(_progress).value, closeTo(0.3, 0.001));
     expect(
       tester
           .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
           .selection,
       const RangeValues(0.25, 0.75),
     );
-
-    expect(find.byType(CircularEqDial), findsNWidgets(3));
-    expect(find.byType(ChoiceChip), findsNWidgets(4));
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Voice'));
-    await tester.pumpAndSettle();
-    expect(service.equalizerUpdates, hasLength(1));
-    expect(service.equalizerUpdates.single, [-0.12, 0.22, 0.18]);
-    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -377,31 +437,40 @@ void main() {
     },
   );
 
-  testWidgets('crop editor supports narrow screens and enlarged text', (
-    tester,
-  ) async {
-    final service = _EditorService();
-    await _showEditor(
-      tester,
-      service,
-      size: const Size(320, 568),
-      textScale: 1.8,
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'crop editor supports narrow screens and enlarged text in $brightness',
+      (tester) async {
+        final service = _EditorService();
+        await _showEditor(
+          tester,
+          service,
+          size: const Size(320, 568),
+          textScale: 1.8,
+          brightness: brightness,
+        );
+        expect(tester.takeException(), isNull);
+        await _tapControl(tester, 'Play selection');
+        expect(service.isPlaying, isTrue);
+        await _tapControl(tester, 'Pause');
+        await _select(tester, const RangeValues(0.1, 0.9));
+        await _tapControl(tester, 'Reset selection');
+        expect(
+          tester
+              .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
+              .selection,
+          const RangeValues(0, 1),
+        );
+        await _tapControl(tester, 'Show effects');
+        await tester.ensureVisible(find.byType(CircularEqDial).last);
+        await tester.pumpAndSettle();
+        expect(find.byType(CircularEqDial), findsNWidgets(3));
+        await _tapControl(tester, 'Hide effects');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
     );
-    expect(tester.takeException(), isNull);
-    await _tapControl(tester, 'Play selection');
-    expect(service.isPlaying, isTrue);
-    await _tapControl(tester, 'Pause');
-    await _select(tester, const RangeValues(0.1, 0.9));
-    await _tapControl(tester, 'Reset selection');
-    expect(
-      tester
-          .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
-          .selection,
-      const RangeValues(0, 1),
-    );
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }
 
   testWidgets('editor fits a narrow screen without vertical scrolling', (
     tester,
@@ -438,6 +507,7 @@ Future<void> _showEditor(
   _EditorService service, {
   Size size = const Size(390, 844),
   double textScale = 1,
+  Brightness brightness = Brightness.dark,
   bool settle = true,
   Recording? recording,
 }) async {
@@ -449,11 +519,15 @@ Future<void> _showEditor(
   addTearDown(controller.dispose);
   await tester.pumpWidget(
     MaterialApp(
-      theme: ThemeData.dark(useMaterial3: true),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
+      theme: brightness == Brightness.light
+          ? VoiceRecTheme.light
+          : VoiceRecTheme.dark,
+      builder: (context, child) => VoiceRecBackdrop(
+        child: MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
       ),
       home: _EditorLauncher(
         controller: controller,
