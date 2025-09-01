@@ -68,8 +68,8 @@ class _LiveWaveformState extends State<LiveWaveform> {
           samples: _samples,
           colors: [
             colors.primary,
-            dark ? const Color(0xFF36D9DF) : colors.secondary,
-            dark ? const Color(0xFF8178FF) : colors.tertiary,
+            dark ? const Color(0xFF36D9DF) : colors.primary,
+            dark ? const Color(0xFF8178FF) : colors.primary,
           ],
         ),
       ),
@@ -131,10 +131,10 @@ class AudioLevelMeter extends StatelessWidget {
           ]
         : [
             theme.colorScheme.primary,
-            const Color(0xFF238657),
-            const Color(0xFFA77A10),
-            const Color(0xFFBA671A),
+            theme.colorScheme.secondary,
+            const Color(0xFF8566A0),
             theme.colorScheme.tertiary,
+            const Color(0xFFAF7447),
           ];
     return Semantics(
       label: clipping
@@ -163,11 +163,11 @@ class AudioLevelMeter extends StatelessWidget {
                             alpha: dark ? 0.18 : 0.12,
                           ),
                     borderRadius: BorderRadius.circular(4),
-                    boxShadow: i < activeCount
+                    boxShadow: dark && i < activeCount
                         ? [
                             BoxShadow(
                               color: palette[(i * palette.length) ~/ 22]
-                                  .withValues(alpha: dark ? 0.22 : 0.1),
+                                  .withValues(alpha: 0.22),
                               blurRadius: 5,
                             ),
                           ]
