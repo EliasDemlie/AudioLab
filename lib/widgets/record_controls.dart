@@ -88,7 +88,7 @@ class RecordControls extends StatelessWidget {
                 icon: Icons.stop_rounded,
                 color: dark
                     ? const Color(0xFF17304A)
-                    : colors.primary.withValues(alpha: 0.1),
+                    : colors.secondaryContainer,
                 foreground: colors.onSurface,
                 onPressed: canControl ? onStop : null,
               ),
@@ -181,23 +181,20 @@ class _RecordingMicIndicator extends StatelessWidget {
             height: 112,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: dark
-                    ? isRecording
+              color: dark
+                  ? null
+                  : isRecording
+                  ? colors.primary
+                  : colors.primaryContainer,
+              gradient: dark
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isRecording
                           ? const [Color(0xFF28E3D0), Color(0xFF00B7B8)]
-                          : const [Color(0xFF164A5A), Color(0xFF10384D)]
-                    : isRecording
-                    ? [
-                        colors.primary,
-                        Color.lerp(colors.primary, colors.secondary, 0.3)!,
-                      ]
-                    : [
-                        colors.primary.withValues(alpha: 0.14),
-                        colors.primary.withValues(alpha: 0.07),
-                      ],
-              ),
+                          : const [Color(0xFF164A5A), Color(0xFF10384D)],
+                    )
+                  : null,
               border: dark
                   ? null
                   : Border.all(color: colors.primary.withValues(alpha: 0.12)),

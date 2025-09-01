@@ -22,7 +22,7 @@ void main() {
     ]) {
       for (final effectsVisible in [false, true]) {
         testWidgets(
-          'opening the editor preserves controls in $brightness at $viewport with effects $effectsVisible and bottom inset $bottomInset',
+          'effects keep player and editor controls fixed in $brightness at $viewport with final visibility $effectsVisible and bottom inset $bottomInset',
           (tester) async {
             tester.view.devicePixelRatio = 1;
             tester.view.physicalSize = viewport;
@@ -49,61 +49,34 @@ void main() {
             await tester.pumpAndSettle();
 
             _expectBackArrow('Back to library');
-            expect(find.byType(CircularEqDial), findsNothing);
-            final playerEffect = _expectBottomEffectButton(
+            await _exerciseEffectToggle(
               tester,
               viewport,
               bottomInset,
+              editing: false,
+              effectsVisible: effectsVisible,
             );
-            if (effectsVisible) {
-              await tester.tap(find.byTooltip('Show effects'));
-              await tester.pumpAndSettle();
-              _expectDialSpacing(tester);
-              expect(
-                _expectBottomEffectButton(tester, viewport, bottomInset),
-                playerEffect,
-                reason: 'Showing effects must preserve the bottom button',
-              );
-            }
             final player = _sharedControlRects(
               tester,
               editing: false,
               effectsVisible: effectsVisible,
             );
             expect(player['play']!.center.dx, closeTo(viewport.width / 2, 1));
-            _expectAvailableHeightUsed(
-              player,
-              viewport,
-              effectsVisible: effectsVisible,
-            );
             await tester.tap(find.text('Edit'));
             await tester.pumpAndSettle();
 
             expect(find.byType(AudioEditorScreen), findsOneWidget);
             _expectBackArrow('Back to player');
-            expect(find.byType(CircularEqDial), findsNothing);
-            final editorEffect = _expectBottomEffectButton(
+            await _exerciseEffectToggle(
               tester,
               viewport,
               bottomInset,
-            );
-            if (effectsVisible) {
-              await tester.tap(find.byTooltip('Show effects'));
-              await tester.pumpAndSettle();
-              _expectDialSpacing(tester);
-              expect(
-                _expectBottomEffectButton(tester, viewport, bottomInset),
-                editorEffect,
-              );
-            }
-            final editor = _sharedControlRects(
-              tester,
               editing: true,
               effectsVisible: effectsVisible,
             );
-            _expectAvailableHeightUsed(
-              editor,
-              viewport,
+            final editor = _sharedControlRects(
+              tester,
+              editing: true,
               effectsVisible: effectsVisible,
             );
             for (final entry in player.entries) {
@@ -128,22 +101,6 @@ void main() {
             }
             expect(tester.takeException(), isNull);
 
-            if (effectsVisible) {
-              final lastDial = find.byType(CircularEqDial).last;
-              await tester.ensureVisible(lastDial);
-              await tester.pumpAndSettle();
-              expect(
-                _expectBottomEffectButton(tester, viewport, bottomInset),
-                editorEffect,
-                reason: 'Scrolling the effects must preserve the bottom button',
-              );
-              expect(
-                tester.getRect(lastDial).bottom,
-                lessThanOrEqualTo(editorEffect.top),
-                reason: 'All effect dials must be reachable above the footer',
-              );
-            }
-
             await tester.tap(find.byTooltip('Back to player'));
             await tester.pumpAndSettle();
             expect(find.byType(AudioEditorScreen), findsNothing);
@@ -162,43 +119,83 @@ void main() {
   }
 }
 
-Rect _expectBottomEffectButton(
+Future<void> _exerciseEffectToggle(
   WidgetTester tester,
   Size viewport,
-  double bottomInset,
-) {
+  double bottomInset, {
+  required bool editing,
+  required bool effectsVisible,
+}) async {
+  expect(find.byType(CircularEqDial), findsNothing);
+  final before = _sharedControlRects(
+    tester,
+    editing: editing,
+    effectsVisible: false,
+  );
   final button = find.widgetWithText(TextButton, 'Effect');
   expect(button.hitTestable(), findsOneWidget);
   final bounds = tester.getRect(button);
-  final safeBottom = viewport.height - bottomInset;
-  expect(bounds.center.dx, closeTo(viewport.width / 2, 1));
-  expect(bounds.bottom, inInclusiveRange(safeBottom - 32, safeBottom));
-  return bounds;
+  expect(bounds.center.dy, closeTo(before['play']!.center.dy, 1));
+  expect(bounds.left, greaterThanOrEqualTo(before['skip forward']!.right));
+  expect(bounds.width, lessThanOrEqualTo(64));
+
+  await tester.tap(find.byTooltip('Show effects'));
+  await tester.pumpAndSettle();
+  expect(find.byType(CircularEqDial), findsNWidgets(3));
+  _expectDialSpacing(tester);
+  _expectUpperControlsUnchanged(tester, before, editing: editing);
+
+  final effectsRegion = find.byKey(const ValueKey('audio-playback-effects'));
+  expect(effectsRegion, findsOneWidget);
+  final lastDial = find.byType(CircularEqDial).last;
+  await tester.ensureVisible(lastDial);
+  await tester.pumpAndSettle();
+  final regionBounds = tester.getRect(effectsRegion);
+  for (final dial in tester.widgetList<CircularEqDial>(
+    find.byType(CircularEqDial),
+  )) {
+    final dialBounds = tester.getRect(find.byWidget(dial));
+    expect(
+      dialBounds.bottom,
+      lessThanOrEqualTo(viewport.height - bottomInset),
+      reason: 'Effect dials must remain reachable above the bottom safe area',
+    );
+    expect(
+      dialBounds.top,
+      greaterThanOrEqualTo(regionBounds.top),
+      reason: 'Effect dials must be visible within their own scroll region',
+    );
+  }
+  _expectUpperControlsUnchanged(tester, before, editing: editing);
+
+  await tester.tap(find.byTooltip('Hide effects'));
+  await tester.pumpAndSettle();
+  expect(find.byType(CircularEqDial), findsNothing);
+  _expectUpperControlsUnchanged(tester, before, editing: editing);
+
+  if (effectsVisible) {
+    await tester.tap(find.byTooltip('Show effects'));
+    await tester.pumpAndSettle();
+    _expectUpperControlsUnchanged(tester, before, editing: editing);
+    _expectDialSpacing(tester);
+  }
 }
 
-void _expectAvailableHeightUsed(
-  Map<String, Rect> controls,
-  Size viewport, {
-  required bool effectsVisible,
+void _expectUpperControlsUnchanged(
+  WidgetTester tester,
+  Map<String, Rect> before, {
+  required bool editing,
 }) {
-  if (viewport.height < 844) return;
-  final footer = controls['effect button']!;
-  if (effectsVisible) {
+  final after = _sharedControlRects(
+    tester,
+    editing: editing,
+    effectsVisible: false,
+  );
+  for (final entry in before.entries) {
     expect(
-      controls['Treble knob']!.bottom,
-      inInclusiveRange(footer.top - 64, footer.top),
-      reason: 'The effects panel should extend into the lower available space',
-    );
-  } else {
-    expect(
-      controls['waveform']!.height,
-      greaterThan(124),
-      reason: 'The waveform should expand into the available screen height',
-    );
-    expect(
-      controls['play']!.bottom,
-      inInclusiveRange(footer.top - 48, footer.top),
-      reason: 'Playback controls should use the lower available screen space',
+      after[entry.key],
+      entry.value,
+      reason: '${entry.key} must not move or resize when effects change',
     );
   }
 }
@@ -212,6 +209,9 @@ Map<String, Rect> _sharedControlRects(
     editing
         ? find.byType(AudioCropWaveform)
         : find.byKey(const ValueKey('playback-waveform')),
+  ),
+  'title': tester.getRect(
+    find.text(editing ? 'Trim selection' : _recording.title),
   ),
   'progress': tester.getRect(find.byType(Slider)),
   'play': tester.getRect(find.byTooltip(editing ? 'Play selection' : 'Play')),
