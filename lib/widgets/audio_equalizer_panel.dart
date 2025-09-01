@@ -76,15 +76,10 @@ class AudioEqualizerPanel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.76),
-            theme.colorScheme.primaryContainer.withValues(alpha: 0.32),
-          ],
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.48),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
         boxShadow: [
           BoxShadow(
             color: theme.colorScheme.primary.withValues(alpha: 0.05),
