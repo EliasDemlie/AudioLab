@@ -12,7 +12,6 @@ class AudioEffectButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return SizedBox(
       width: 64,
       child: Semantics(
@@ -25,13 +24,6 @@ class AudioEffectButton extends StatelessWidget {
               minimumSize: const Size(0, 44),
               padding: const EdgeInsets.symmetric(horizontal: 6),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              backgroundColor: visible
-                  ? colors.primary.withValues(alpha: 0.12)
-                  : colors.primary.withValues(alpha: 0.05),
-              shape: const StadiumBorder(),
-              side: BorderSide(
-                color: colors.primary.withValues(alpha: visible ? 0.3 : 0.12),
-              ),
             ),
             child: const FittedBox(
               fit: BoxFit.scaleDown,
