@@ -285,22 +285,18 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
           duration: _recording.duration,
           isEditing: _editing,
           onEdit: _editAudio,
+          effectsVisible: _effectsVisible,
+          onToggleEffects: () =>
+              setState(() => _effectsVisible = !_effectsVisible),
           onToggle: _togglePlayback,
           onSeek: _seek,
         ),
-        effectButton: AudioEffectButton(
-          visible: _effectsVisible,
-          onPressed: _editing
-              ? null
-              : () => setState(() => _effectsVisible = !_effectsVisible),
+        effectsVisible: _effectsVisible,
+        effects: AudioEqualizerPanel(
+          gains: _equalizerGains,
+          busy: _equalizerBusy,
+          onChanged: _applyEqualizer,
         ),
-        effects: _effectsVisible
-            ? AudioEqualizerPanel(
-                gains: _equalizerGains,
-                busy: _equalizerBusy,
-                onChanged: _applyEqualizer,
-              )
-            : null,
       ),
     );
   }
@@ -313,6 +309,8 @@ class _PlaybackControls extends StatefulWidget {
     required this.duration,
     required this.isEditing,
     required this.onEdit,
+    required this.effectsVisible,
+    required this.onToggleEffects,
     required this.onToggle,
     required this.onSeek,
   });
@@ -322,6 +320,8 @@ class _PlaybackControls extends StatefulWidget {
   final Duration? duration;
   final bool isEditing;
   final VoidCallback onEdit;
+  final bool effectsVisible;
+  final VoidCallback onToggleEffects;
   final VoidCallback onToggle;
   final ValueChanged<Duration> onSeek;
 
@@ -459,7 +459,10 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                   ),
                 ),
               ),
-              trailing: const SizedBox.shrink(),
+              trailing: AudioEffectButton(
+                visible: widget.effectsVisible,
+                onPressed: widget.isEditing ? null : widget.onToggleEffects,
+              ),
             ),
           ],
         );
