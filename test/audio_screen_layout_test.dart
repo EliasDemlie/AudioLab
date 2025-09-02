@@ -142,6 +142,11 @@ Future<void> _exerciseEffectToggle(
   await tester.tap(find.byTooltip('Show effects'));
   await tester.pumpAndSettle();
   expect(find.byType(CircularEqDial), findsNWidgets(3));
+  expect(
+    tester.getRect(find.text('EQUALIZER')).top - before['play']!.bottom,
+    inInclusiveRange(0, 52),
+    reason: 'Effects should appear directly below the playback controls',
+  );
   _expectDialSpacing(tester);
   _expectUpperControlsUnchanged(tester, before, editing: editing);
 
