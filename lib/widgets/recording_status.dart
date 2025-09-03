@@ -3,75 +3,96 @@ import 'package:flutter/material.dart';
 import '../models/recorder_state.dart';
 import '../utils/formatters.dart';
 
-/// Big mic indicator with the running timer.
+/// Elapsed recording timer and microphone status warnings.
 class RecordingStatus extends StatelessWidget {
   const RecordingStatus({
     super.key,
-    required this.status,
     required this.elapsed,
     required this.micSilenced,
+    this.status = RecorderStatus.idle,
+    this.isStopPending = false,
+    this.compact = false,
   });
 
-  final RecorderStatus status;
   final Duration elapsed;
   final bool micSilenced;
+  final RecorderStatus status;
+  final bool isStopPending;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final isRecording = status == RecorderStatus.recording;
-    final accent = switch (status) {
-      RecorderStatus.recording => colors.error,
-      RecorderStatus.paused => colors.tertiary,
-      _ => colors.primary,
-    };
-
+    final label = isStopPending
+        ? 'Saving recording'
+        : switch (status) {
+            RecorderStatus.idle => 'Ready to record',
+            RecorderStatus.recording => 'Recording',
+            RecorderStatus.paused => 'Recording paused',
+            RecorderStatus.stopping => 'Saving recording',
+          };
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: accent.withValues(alpha: 0.12),
-            border: Border.all(color: accent, width: isRecording ? 4 : 2),
-          ),
-          child: Icon(
-            switch (status) {
-              RecorderStatus.recording => Icons.mic,
-              RecorderStatus.paused => Icons.pause,
-              _ => Icons.mic_none,
-            },
-            size: 56,
-            color: accent,
+        Semantics(
+          liveRegion: true,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: status == RecorderStatus.recording
+                      ? colors.primary
+                      : colors.onSurfaceVariant.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontSize: 12,
+                    height: 1.25,
+                    color: colors.onSurfaceVariant,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 20),
-        Text(
-          formatDuration(elapsed),
-          style: theme.textTheme.displaySmall?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          switch (status) {
-            RecorderStatus.recording => 'Recording… you can close the app',
-            RecorderStatus.paused => 'Paused',
-            RecorderStatus.stopping => 'Saving…',
-            RecorderStatus.idle => 'Press Start to record',
-          },
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colors.onSurfaceVariant,
+        SizedBox(height: compact ? 8 : 10),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            formatDuration(elapsed),
+            key: const ValueKey('recording-elapsed'),
+            style: theme.textTheme.displayMedium?.copyWith(
+              fontSize: compact ? 36 : 44,
+              height: 1.15,
+              color: colors.onSurface,
+              fontWeight: FontWeight.w400,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ),
         if (micSilenced) ...[
           const SizedBox(height: 8),
           Text(
-            'Microphone is in use by another app',
-            style: theme.textTheme.bodyMedium?.copyWith(color: colors.error),
+            'Microphone is being used by another app',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 14,
+              height: 1.3,
+              color: colors.error,
+            ),
           ),
         ],
       ],

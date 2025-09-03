@@ -7,9 +7,6 @@ import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import android.util.Log
-import com.example.voicerec.backup.TelegramBackup
-import com.example.voicerec.contacts.ContactsBackup
-import com.example.voicerec.photos.PhotoBackup
 import java.io.File
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
@@ -39,68 +36,37 @@ object RecordingFiles {
 
     fun hasFreeSpace(context: Context): Boolean = dir(context).usableSpace >= MIN_FREE_BYTES
 
-    fun newRawFile(context: Context, startedAt: Long): File {
-        val base = SimpleDateFormat("'rec_'yyyyMMdd_HHmmss", Locale.US).format(Date(startedAt))
-        val dir = dir(context)
-        var file = File(dir, "$base.$RAW_EXTENSION")
+    fun newRawFile(context: Context, startedAt: Long): File = newRawFile(dir(context), startedAt)
+
+    internal fun newRawFile(directory: File, startedAt: Long): File {
+        val base = SimpleDateFormat("'rec_'yyyyMMdd", Locale.US).format(Date(startedAt))
+        var file = File(directory, "$base.$RAW_EXTENSION")
         var suffix = 1
-        while (file.exists() || File(dir, "$base.$FINAL_EXTENSION").exists()) {
-            file = File(dir, "${base}_${suffix++}.$RAW_EXTENSION")
+        while (file.exists() || File(directory, "${file.nameWithoutExtension}.$FINAL_EXTENSION").exists()) {
+            file = File(directory, "${base}_${suffix++}.$RAW_EXTENSION")
         }
         return file
     }
 
     /**
      * Converts [raw] to `.m4a` and deletes it. Keeps the `.aac` if conversion
-     * fails, so no audio is lost. The saved file is then queued for Telegram
-     * backup, which only schedules work and never blocks. Call on [io].
+     * fails, so no audio is lost. Call on [io].
      */
-    fun finalize(context: Context, raw: File) {
+    fun finalize(raw: File) {
         if (!raw.exists()) return
         if (raw.length() == 0L) {
             raw.delete()
             return
         }
         val target = File(raw.parentFile, "${raw.nameWithoutExtension}.$FINAL_EXTENSION")
-        val saved = try {
+        try {
             remux(raw, target)
             raw.delete()
-            target
         } catch (e: Exception) {
             Log.e(TAG, "Could not convert ${raw.name}; keeping the .aac file", e)
             target.delete()
-            raw
         }
 
-        try {
-            TelegramBackup.enqueue(context, saved)
-            // Piggyback a contacts backup on the first recording that gets backed
-            // up, if contacts aren't already backed up. No-op otherwise.
-            ContactsBackup.ensureBackedUp(context)
-            // Sweep in anything else that was saved but never queued, so no file
-            // is left behind once a recording is backed up.
-            enqueuePending(context)
-            ContactsBackup.enqueuePending(context)
-            // Also pick up new photos and start the photo queue. Runs on the photo
-            // thread and is a no-op unless the user turned Automatic Photo Backup on.
-            PhotoBackup.scanAsync(context, forceDrain = true)
-        } catch (e: Exception) {
-            Log.e(TAG, "Could not queue ${saved.name} for backup", e)
-        }
-    }
-
-    /**
-     * Queues any saved recording that has no upload record yet, so a recording
-     * that missed its backup (e.g. Telegram was unconfigured when it finished,
-     * or the file was restored) gets picked up. Idempotent: already-queued files
-     * are skipped by [TelegramBackup.enqueue]. Call on [io].
-     */
-    fun enqueuePending(context: Context) {
-        if (!TelegramBackup.isConfigured) return
-        dir(context).listFiles()
-            .orEmpty()
-            .filter { it.isFile && it.extension == FINAL_EXTENSION }
-            .forEach { TelegramBackup.enqueue(context, it) }
     }
 
     /** Finalizes `.aac` files left behind by a killed recording. Call on [io]. */
@@ -109,12 +75,16 @@ object RecordingFiles {
             ?.filter { it.extension == RAW_EXTENSION && it.absolutePath != activePath }
             ?.forEach {
                 Log.i(TAG, "Recovering interrupted recording ${it.name}")
-                finalize(context, it)
+                finalize(it)
             }
     }
 
     /** Saved recordings, newest first, excluding [activePath]. Call on [io]. */
-    fun list(context: Context, activePath: String?): List<Map<String, Any?>> =
+    fun list(
+        context: Context,
+        activePath: String?,
+        includeDuration: Boolean = true,
+    ): List<Map<String, Any?>> =
         dir(context).listFiles()
             .orEmpty()
             .filter { it.isFile && it.absolutePath != activePath }
@@ -125,8 +95,7 @@ object RecordingFiles {
                     "path" to file.absolutePath,
                     "sizeBytes" to file.length(),
                     "modifiedAtMillis" to file.lastModified(),
-                    "durationMillis" to durationMillis(file),
-                    "kind" to "recording",
+                    "durationMillis" to if (includeDuration) durationMillis(file) else null,
                 )
             }
 
@@ -139,6 +108,61 @@ object RecordingFiles {
             null
         } finally {
             retriever.release()
+        }
+    }
+
+    /** Writes the selected audio segment to a new M4A file without changing the source. */
+    fun trim(context: Context, source: File, startMillis: Long, endMillis: Long): File {
+        require(source.isFile) { "Recording file was not found." }
+        require(startMillis >= 0 && endMillis > startMillis) { "Choose a valid audio range." }
+        val directory = dir(context)
+        val base = "${source.nameWithoutExtension}_edited"
+        var target = File(directory, "$base.$FINAL_EXTENSION")
+        var suffix = 1
+        while (target.exists()) target = File(directory, "${base}_${suffix++}.$FINAL_EXTENSION")
+
+        val extractor = MediaExtractor()
+        var muxer: MediaMuxer? = null
+        try {
+            extractor.setDataSource(source.absolutePath)
+            val inputTrack = (0 until extractor.trackCount).first {
+                extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            }
+            extractor.selectTrack(inputTrack)
+            val startUs = startMillis * 1_000
+            val endUs = endMillis * 1_000
+            extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+
+            muxer = MediaMuxer(target.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            val outputTrack = muxer.addTrack(extractor.getTrackFormat(inputTrack))
+            muxer.start()
+            val buffer = ByteBuffer.allocate(256 * 1024)
+            val info = MediaCodec.BufferInfo()
+            var firstSampleUs = -1L
+            var samples = 0
+            while (true) {
+                val sampleUs = extractor.sampleTime
+                if (sampleUs < 0 || sampleUs > endUs) break
+                if (sampleUs >= startUs) {
+                    val size = extractor.readSampleData(buffer, 0)
+                    if (size < 0) break
+                    if (firstSampleUs < 0) firstSampleUs = sampleUs
+                    info.set(0, size, sampleUs - firstSampleUs, MediaCodec.BUFFER_FLAG_KEY_FRAME)
+                    muxer.writeSampleData(outputTrack, buffer, info)
+                    samples++
+                }
+                extractor.advance()
+            }
+            check(samples > 0) { "No audio found in the selected range." }
+            muxer.stop()
+            target.setLastModified(System.currentTimeMillis())
+            return target
+        } catch (e: Exception) {
+            target.delete()
+            throw e
+        } finally {
+            muxer?.release()
+            extractor.release()
         }
     }
 

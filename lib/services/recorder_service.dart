@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/recorder_state.dart';
 import '../models/recording.dart';
+import '../models/recording_waveform.dart';
 
 /// Talks to the native `RecordingService` (Android) over platform channels.
 class RecorderService {
@@ -36,10 +39,122 @@ class RecorderService {
 
   Future<void> stop() => _methods.invokeMethod<void>('stopRecording');
 
+  Future<Recording> rename(Recording recording, String title) async {
+    final cleanedTitle = title
+        .trim()
+        .replaceAll(RegExp(r'[/\\\u0000-\u001F]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    final safeTitle = String.fromCharCodes(cleanedTitle.runes.take(80));
+    if (safeTitle.isEmpty) {
+      throw PlatformException(
+        code: 'INVALID_TITLE',
+        message: 'Enter a name for this recording.',
+      );
+    }
+    if (safeTitle == recording.title) return recording;
+
+    final extension = recording.file.uri.pathSegments.last.split('.').last;
+    var target = File('${recording.file.parent.path}/$safeTitle.$extension');
+    var suffix = 1;
+    while (await target.exists() && target.path != recording.file.path) {
+      target = File(
+        '${recording.file.parent.path}/$safeTitle (${suffix++}).$extension',
+      );
+    }
+    final oldPath = recording.file.path;
+    final renamed = await recording.file.rename(target.path);
+    try {
+      await _methods.invokeMethod<void>('updateRecordingPath', {
+        'oldPath': oldPath,
+        'newPath': renamed.path,
+        'title': safeTitle,
+      });
+    } catch (_) {
+      // Roll back the file move if catalog metadata could not be updated.
+      // Keep the channel error as the useful failure if rollback also fails.
+      try {
+        await renamed.rename(oldPath);
+      } on FileSystemException {
+        // The original error is still reported to the caller.
+      }
+      rethrow;
+    }
+    return recording.copyWith(
+      file: renamed,
+      title: safeTitle,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  /// Peak microphone amplitude since the previous read, normalized by the
+  /// Android recorder to its 16-bit PCM range (0–32767).
+  Future<int> readPeakAmplitude() async =>
+      await _methods.invokeMethod<int>('readPeakAmplitude') ?? 0;
+
+  Future<void> play(Recording recording) => _methods.invokeMethod<void>(
+    'playRecording',
+    {'path': recording.file.path},
+  );
+
+  Future<void> pausePlayback() => _methods.invokeMethod<void>('pausePlayback');
+
+  Future<void> resumePlayback() =>
+      _methods.invokeMethod<void>('resumePlayback');
+
+  Future<void> stopPlayback() => _methods.invokeMethod<void>('stopPlayback');
+
+  Future<void> seekPlayback(Duration position) => _methods.invokeMethod<void>(
+    'seekPlayback',
+    {'positionMillis': position.inMilliseconds},
+  );
+
+  Future<PlaybackState> getPlaybackState() async => PlaybackState.fromMap(
+    await _methods.invokeMapMethod<String, dynamic>('getPlaybackState'),
+  );
+
+  Future<RecordingWaveform> loadWaveform(Recording recording) async {
+    final map = await _methods.invokeMapMethod<String, dynamic>(
+      'getRecordingWaveform',
+      {'path': recording.file.path, 'sampleCount': 160},
+    );
+    if (map == null) {
+      throw PlatformException(
+        code: 'WAVEFORM_FAILED',
+        message: 'Could not read the recording waveform.',
+      );
+    }
+    return RecordingWaveform.fromMap(map);
+  }
+
+  Future<void> setPlaybackEqualizer(List<double> gains) =>
+      _methods.invokeMethod<void>('setPlaybackEqualizer', {'gains': gains});
+
+  Future<String> trimAudio(
+    Recording recording, {
+    required Duration start,
+    required Duration end,
+  }) async =>
+      await _methods.invokeMethod<String>('trimRecording', {
+        'path': recording.file.path,
+        'startMillis': start.inMilliseconds,
+        'endMillis': end.inMilliseconds,
+      }) ??
+      (throw PlatformException(
+        code: 'EDIT_FAILED',
+        message: 'The edited recording was not saved.',
+      ));
+
   /// Saved recordings, newest first. Also recovers recordings that were
   /// interrupted (e.g. the app was killed while recording).
   Future<List<Recording>> loadRecordings() async {
     final list = await _methods.invokeListMethod<Map>('listRecordings');
+    return [...?list?.map(Recording.fromMap)];
+  }
+
+  /// Full catalog, including unavailable and recently deleted audio entries.
+  Future<List<Recording>> loadLibraryRecordings() async {
+    final list = await _methods.invokeListMethod<Map>('listLibraryRecordings');
     return [...?list?.map(Recording.fromMap)];
   }
 
