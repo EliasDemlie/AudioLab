@@ -59,6 +59,7 @@ class RecordingService : Service() {
         recorder?.let { releaseRecorder(it) }
         recorder = null
         unwatchMicrophone()
+        RecentsVisibility.setHidden(this, false)
         if (state.isActive) updateState(RecorderState(error = "Recording was interrupted by the system."))
         super.onDestroy()
     }
@@ -115,6 +116,7 @@ class RecordingService : Service() {
         recorder = newRecorder
         updateState(starting.copy(filePath = file.absolutePath))
         watchMicrophone()
+        RecentsVisibility.setHidden(this, true)
     }
 
     private fun pauseRecording() {
@@ -196,6 +198,7 @@ class RecordingService : Service() {
     }
 
     private fun finish(finalState: RecorderState) {
+        RecentsVisibility.setHidden(this, false)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         updateState(finalState)

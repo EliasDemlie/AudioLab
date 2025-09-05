@@ -32,6 +32,8 @@ class RecorderChannel(
     init {
         methodChannel.setMethodCallHandler(this)
         eventChannel.setStreamHandler(this)
+        // If the process was killed mid-recording, the task may still be hidden.
+        if (!RecordingService.state.isActive) RecentsVisibility.setHidden(activity, false)
     }
 
     fun dispose() {
