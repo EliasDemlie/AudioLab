@@ -76,6 +76,14 @@ class RecorderController extends ChangeNotifier {
     await refreshRecordings();
   }
 
+  Future<void> share(Recording recording) async {
+    try {
+      await _service.share(recording);
+    } on PlatformException catch (e) {
+      _errors.add(e.message ?? 'Could not share recording');
+    }
+  }
+
   void _onState(RecorderState state) {
     if (_disposed) return;
     final wasActive = _state.isActive;

@@ -105,6 +105,7 @@ class _RecorderScreenState extends State<RecorderScreen> {
               Expanded(
                 child: RecordingsList(
                   recordings: _controller.recordings,
+                  onShare: _controller.share,
                   onDelete: _confirmDelete,
                 ),
               ),

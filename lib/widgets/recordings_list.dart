@@ -8,10 +8,12 @@ class RecordingsList extends StatelessWidget {
   const RecordingsList({
     super.key,
     required this.recordings,
+    required this.onShare,
     required this.onDelete,
   });
 
   final List<Recording> recordings;
+  final ValueChanged<Recording> onShare;
   final ValueChanged<Recording> onDelete;
 
   @override
@@ -34,10 +36,21 @@ class RecordingsList extends StatelessWidget {
               formatBytes(recording.sizeBytes),
             ].join(' · '),
           ),
-          trailing: IconButton(
-            tooltip: 'Delete',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => onDelete(recording),
+          onTap: () => onShare(recording),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Share',
+                icon: const Icon(Icons.share_outlined),
+                onPressed: () => onShare(recording),
+              ),
+              IconButton(
+                tooltip: 'Delete',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => onDelete(recording),
+              ),
+            ],
           ),
         );
       },

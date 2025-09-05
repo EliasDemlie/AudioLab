@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/recorder_state.dart';
 import '../models/recording.dart';
@@ -44,4 +45,17 @@ class RecorderService {
 
   Future<void> delete(Recording recording) => recording.file.delete();
 
+  /// Opens the Android share sheet for [recording].
+  Future<void> share(Recording recording) => SharePlus.instance.share(
+    ShareParams(
+      files: [
+        XFile(recording.file.path, mimeType: _mimeType(recording.file.path)),
+      ],
+      subject: recording.name,
+    ),
+  );
+
+  /// `.m4a` is the normal format; `.aac` is kept only if conversion failed.
+  static String _mimeType(String path) =>
+      path.endsWith('.aac') ? 'audio/aac' : 'audio/mp4';
 }
