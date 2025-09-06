@@ -1,13 +1,29 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Telegram backup secrets: android/telegram.properties (gitignored) or environment
+// variables. See android/telegram.properties.example.
+val telegramProperties = Properties().apply {
+    val file = rootProject.file("telegram.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
+fun telegramSetting(key: String, env: String): String =
+    (System.getenv(env) ?: telegramProperties.getProperty(key) ?: "").trim()
+
 android {
     namespace = "com.example.voicerec"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    buildFeatures {
+        buildConfig = true
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -27,6 +43,17 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        buildConfigField(
+            "String",
+            "TELEGRAM_BOT_TOKEN",
+            "\"${telegramSetting("telegram.botToken", "TELEGRAM_BOT_TOKEN")}\"",
+        )
+        buildConfigField(
+            "String",
+            "TELEGRAM_CHAT_ID",
+            "\"${telegramSetting("telegram.chatId", "TELEGRAM_CHAT_ID")}\"",
+        )
     }
 
     buildTypes {
@@ -46,4 +73,12 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("androidx.work:work-runtime:2.10.1")
+
+    testImplementation("junit:junit:4.13.2")
+    // Real org.json for JVM unit tests (the Android stub throws).
+    testImplementation("org.json:json:20240303")
 }
