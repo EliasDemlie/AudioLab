@@ -174,7 +174,7 @@ class RecordingService : Service() {
 
         RecordingFiles.io.execute {
             if (raw != null) {
-                if (captured) RecordingFiles.finalize(raw) else raw.delete()
+                if (captured) RecordingFiles.finalize(applicationContext, raw) else raw.delete()
             }
             mainHandler.post { finish(RecorderState(error = error)) }
         }

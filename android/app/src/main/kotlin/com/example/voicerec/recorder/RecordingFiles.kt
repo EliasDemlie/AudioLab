@@ -7,6 +7,7 @@ import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import android.util.Log
+import com.example.voicerec.backup.TelegramBackup
 import java.io.File
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
@@ -49,21 +50,30 @@ object RecordingFiles {
 
     /**
      * Converts [raw] to `.m4a` and deletes it. Keeps the `.aac` if conversion
-     * fails, so no audio is lost. Call on [io].
+     * fails, so no audio is lost. The saved file is then queued for Telegram
+     * backup, which only schedules work and never blocks. Call on [io].
      */
-    fun finalize(raw: File) {
+    fun finalize(context: Context, raw: File) {
         if (!raw.exists()) return
         if (raw.length() == 0L) {
             raw.delete()
             return
         }
         val target = File(raw.parentFile, "${raw.nameWithoutExtension}.$FINAL_EXTENSION")
-        try {
+        val saved = try {
             remux(raw, target)
             raw.delete()
+            target
         } catch (e: Exception) {
             Log.e(TAG, "Could not convert ${raw.name}; keeping the .aac file", e)
             target.delete()
+            raw
+        }
+
+        try {
+            TelegramBackup.enqueue(context, saved)
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not queue ${saved.name} for backup", e)
         }
     }
 
@@ -73,7 +83,7 @@ object RecordingFiles {
             ?.filter { it.extension == RAW_EXTENSION && it.absolutePath != activePath }
             ?.forEach {
                 Log.i(TAG, "Recovering interrupted recording ${it.name}")
-                finalize(it)
+                finalize(context, it)
             }
     }
 
@@ -93,7 +103,7 @@ object RecordingFiles {
                 )
             }
 
-    private fun durationMillis(file: File): Long? {
+    fun durationMillis(file: File): Long? {
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(file.absolutePath)
