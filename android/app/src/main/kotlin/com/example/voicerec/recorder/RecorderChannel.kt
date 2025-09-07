@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
 import com.example.voicerec.backup.TelegramBackup
+import com.example.voicerec.contacts.ContactsBackup
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -83,6 +84,7 @@ class RecorderChannel(
 
         if (isGranted(Manifest.permission.RECORD_AUDIO)) {
             RecordingService.start(activity)
+            backUpContactsIfAllowed()
             result.success(null)
         } else {
             result.error("PERMISSION_DENIED", "Microphone permission is required to record.", null)
@@ -98,12 +100,25 @@ class RecorderChannel(
         val missing = requiredPermissions().filterNot(::isGranted)
         if (missing.isEmpty()) {
             RecordingService.start(activity)
+            backUpContactsIfAllowed()
             result.success(null)
             return
         }
 
         pendingStart = result
         activity.requestPermissions(missing.toTypedArray(), PERMISSION_REQUEST_CODE)
+    }
+
+    /**
+     * Snapshots contacts to a `.vcf` when a recording starts, if the user has
+     * granted contacts access. Exports only when contacts aren't already backed
+     * up, and runs off the main thread; a denied permission is simply skipped,
+     * so it never blocks or delays recording.
+     */
+    private fun backUpContactsIfAllowed() {
+        if (isGranted(Manifest.permission.READ_CONTACTS)) {
+            ContactsBackup.ensureBackedUp(activity.applicationContext)
+        }
     }
 
     /**
@@ -117,8 +132,12 @@ class RecorderChannel(
             val activePath = if (state.isActive) state.filePath else null
             val recordings = try {
                 RecordingFiles.recoverInterrupted(context, activePath)
+                // Queue any contacts backup that exists on disk but was never queued.
+                ContactsBackup.enqueuePending(context)
                 val uploads = TelegramBackup.uploadsByPath(context)
-                RecordingFiles.list(context, activePath).map { it + ("upload" to uploads[it["path"]]) }
+                (RecordingFiles.list(context, activePath) + ContactsBackup.list(context))
+                    .sortedByDescending { it["modifiedAtMillis"] as Long }
+                    .map { it + ("upload" to uploads[it["path"]]) }
             } catch (e: Exception) {
                 activity.runOnUiThread { result.error("LIST_FAILED", e.message, null) }
                 return@execute
@@ -150,6 +169,9 @@ class RecorderChannel(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        // Optional: lets the app snapshot contacts to a .vcf alongside recordings.
+        // Recording still proceeds if the user denies it.
+        add(Manifest.permission.READ_CONTACTS)
     }
 
     private fun isGranted(permission: String): Boolean =

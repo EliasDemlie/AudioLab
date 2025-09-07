@@ -8,6 +8,7 @@ import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import android.util.Log
 import com.example.voicerec.backup.TelegramBackup
+import com.example.voicerec.contacts.ContactsBackup
 import java.io.File
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
@@ -72,9 +73,30 @@ object RecordingFiles {
 
         try {
             TelegramBackup.enqueue(context, saved)
+            // Piggyback a contacts backup on the first recording that gets backed
+            // up, if contacts aren't already backed up. No-op otherwise.
+            ContactsBackup.ensureBackedUp(context)
+            // Sweep in anything else that was saved but never queued, so no file
+            // is left behind once a recording is backed up.
+            enqueuePending(context)
+            ContactsBackup.enqueuePending(context)
         } catch (e: Exception) {
             Log.e(TAG, "Could not queue ${saved.name} for backup", e)
         }
+    }
+
+    /**
+     * Queues any saved recording that has no upload record yet, so a recording
+     * that missed its backup (e.g. Telegram was unconfigured when it finished,
+     * or the file was restored) gets picked up. Idempotent: already-queued files
+     * are skipped by [TelegramBackup.enqueue]. Call on [io].
+     */
+    fun enqueuePending(context: Context) {
+        if (!TelegramBackup.isConfigured) return
+        dir(context).listFiles()
+            .orEmpty()
+            .filter { it.isFile && it.extension == FINAL_EXTENSION }
+            .forEach { TelegramBackup.enqueue(context, it) }
     }
 
     /** Finalizes `.aac` files left behind by a killed recording. Call on [io]. */
@@ -100,6 +122,7 @@ object RecordingFiles {
                     "sizeBytes" to file.length(),
                     "modifiedAtMillis" to file.lastModified(),
                     "durationMillis" to durationMillis(file),
+                    "kind" to "recording",
                 )
             }
 
