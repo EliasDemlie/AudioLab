@@ -2,13 +2,24 @@ import 'dart:io';
 
 import 'upload_status.dart';
 
-/// A finished recording file on disk.
+/// What a list entry is: an audio recording or an exported contacts backup.
+enum RecordingKind {
+  audio,
+  contacts;
+
+  static RecordingKind fromName(String? name) =>
+      name == 'contacts' ? RecordingKind.contacts : RecordingKind.audio;
+}
+
+/// A finished recording or contacts backup file on disk.
 class Recording {
   const Recording({
     required this.file,
     required this.createdAt,
     required this.sizeBytes,
+    this.kind = RecordingKind.audio,
     this.duration,
+    this.contactCount,
     this.upload,
   });
 
@@ -21,9 +32,11 @@ class Recording {
         map['modifiedAtMillis'] as int,
       ),
       sizeBytes: map['sizeBytes'] as int,
+      kind: RecordingKind.fromName(map['kind'] as String?),
       duration: durationMillis == null
           ? null
           : Duration(milliseconds: durationMillis),
+      contactCount: map['contactCount'] as int?,
       upload: upload == null ? null : UploadStatus.fromMap(upload),
     );
   }
@@ -31,11 +44,15 @@ class Recording {
   final File file;
   final DateTime createdAt;
   final int sizeBytes;
+  final RecordingKind kind;
 
-  /// Null if the file's duration couldn't be read.
+  /// Audio length; null for a contacts backup or if it couldn't be read.
   final Duration? duration;
 
-  /// Telegram backup status; null if the recording was never queued.
+  /// Number of contacts in a contacts backup; null for an audio recording.
+  final int? contactCount;
+
+  /// Telegram backup status; null if the file was never queued.
   final UploadStatus? upload;
 
   String get name => file.uri.pathSegments.last;
@@ -44,7 +61,9 @@ class Recording {
     file: file,
     createdAt: createdAt,
     sizeBytes: sizeBytes,
+    kind: kind,
     duration: duration,
+    contactCount: contactCount,
     upload: upload ?? this.upload,
   );
 }

@@ -32,8 +32,11 @@ class RecordingsList extends StatelessWidget {
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final recording = recordings[index];
+        final isContacts = recording.kind == RecordingKind.contacts;
         return ListTile(
-          leading: const Icon(Icons.audio_file_outlined),
+          leading: Icon(
+            isContacts ? Icons.contacts_outlined : Icons.audio_file_outlined,
+          ),
           title: Text(recording.name),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,6 +46,8 @@ class RecordingsList extends StatelessWidget {
                   formatDateTime(recording.createdAt),
                   if (recording.duration != null)
                     formatDuration(recording.duration!),
+                  if (recording.contactCount != null)
+                    '${recording.contactCount} contacts',
                   formatBytes(recording.sizeBytes),
                 ].join(' · '),
               ),

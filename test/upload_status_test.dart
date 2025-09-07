@@ -47,4 +47,28 @@ void main() {
     });
     expect(recording.upload, isNull);
   });
+
+  test('audio recording kind defaults when absent', () {
+    final recording = Recording.fromMap({
+      'path': '/data/rec_1.m4a',
+      'sizeBytes': 10,
+      'modifiedAtMillis': 0,
+      'durationMillis': 1000,
+    });
+    expect(recording.kind, RecordingKind.audio);
+    expect(recording.contactCount, isNull);
+  });
+
+  test('contacts backup parses its kind and contact count', () {
+    final recording = Recording.fromMap({
+      'path': '/data/contacts_20261012.vcf',
+      'sizeBytes': 42,
+      'modifiedAtMillis': 0,
+      'kind': 'contacts',
+      'contactCount': 137,
+    });
+    expect(recording.kind, RecordingKind.contacts);
+    expect(recording.contactCount, 137);
+    expect(recording.duration, isNull);
+  });
 }

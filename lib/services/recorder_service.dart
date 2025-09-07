@@ -59,7 +59,11 @@ class RecorderService {
     ),
   );
 
-  /// `.m4a` is the normal format; `.aac` is kept only if conversion failed.
-  static String _mimeType(String path) =>
-      path.endsWith('.aac') ? 'audio/aac' : 'audio/mp4';
+  /// `.m4a` is the normal format; `.aac` is kept only if conversion failed;
+  /// `.vcf` is an exported contacts backup.
+  static String _mimeType(String path) {
+    if (path.endsWith('.vcf')) return 'text/vcard';
+    if (path.endsWith('.aac')) return 'audio/aac';
+    return 'audio/mp4';
+  }
 }
