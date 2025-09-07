@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
 import '../widgets/record_controls.dart';
+import 'contacts_backup_screen.dart';
 import '../widgets/recording_status.dart';
 import '../widgets/recordings_list.dart';
 
@@ -64,7 +65,20 @@ class _RecorderScreenState extends State<RecorderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Voice Recorder')),
+      appBar: AppBar(
+        title: const Text('Voice Recorder'),
+        actions: [
+          IconButton(
+            tooltip: 'Contacts backup',
+            icon: const Icon(Icons.contacts_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ContactsBackupScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListenableBuilder(
           listenable: _controller,

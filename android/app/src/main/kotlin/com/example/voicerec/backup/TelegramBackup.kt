@@ -12,6 +12,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import com.example.voicerec.BuildConfig
+import com.example.voicerec.contacts.ContactsBackup
 import com.example.voicerec.recorder.RecordingFiles
 import java.io.File
 import java.text.SimpleDateFormat
@@ -20,9 +21,9 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * Entry point for Telegram backup: queues finalized recordings and schedules
- * their upload with WorkManager. Independent of recording: nothing here can
- * block or fail a recording.
+ * Entry point for Telegram backup: queues finalized recordings and contacts
+ * backups, and schedules their upload with WorkManager. Independent of
+ * recording: nothing here can block or fail a recording.
  *
  * Local files are never deleted by backup.
  */
@@ -76,6 +77,12 @@ object TelegramBackup {
     fun uploadsByPath(context: Context): Map<String, Map<String, Any?>> =
         store(context).all().associate { it.filePath to it.toMap() }
 
+    fun get(context: Context, file: File): UploadRecord? = store(context).get(recordingId(file))
+
+    /** Uploads whose ID starts with [prefix] (e.g. contacts backups), newest first. */
+    fun uploadsWithPrefix(context: Context, prefix: String): List<UploadRecord> =
+        store(context).findByPrefix(prefix)
+
     fun processor(context: Context) = UploadProcessor(
         store = store(context),
         sender = TelegramClient(BuildConfig.TELEGRAM_BOT_TOKEN, BuildConfig.TELEGRAM_CHAT_ID),
@@ -103,7 +110,10 @@ object TelegramBackup {
         mainHandler.post { listener?.invoke(record) }
     }
 
-    private fun caption(file: File): String {
+    private fun caption(file: File): String =
+        if (ContactsBackup.isBackupFile(file)) ContactsBackup.caption(file) else recordingCaption(file)
+
+    private fun recordingCaption(file: File): String {
         val saved = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(file.lastModified()))
         val duration = RecordingFiles.durationMillis(file)?.let { millis ->
             val seconds = millis / 1000
