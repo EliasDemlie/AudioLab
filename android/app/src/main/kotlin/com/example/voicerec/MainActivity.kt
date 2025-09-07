@@ -1,5 +1,6 @@
 package com.example.voicerec
 
+import com.example.voicerec.backup.BackupChannel
 import com.example.voicerec.recorder.RecorderChannel
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -7,16 +8,21 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity() {
 
     private var recorderChannel: RecorderChannel? = null
+    private var backupChannel: BackupChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        recorderChannel = RecorderChannel(this, flutterEngine.dartExecutor.binaryMessenger)
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        recorderChannel = RecorderChannel(this, messenger)
+        backupChannel = BackupChannel(applicationContext, messenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
-        // The UI is going away; the RecordingService keeps recording on its own.
+        // The UI is going away; recording and uploads continue on their own.
         recorderChannel?.dispose()
         recorderChannel = null
+        backupChannel?.dispose()
+        backupChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

@@ -43,7 +43,11 @@ class RecorderService {
     return [...?list?.map(Recording.fromMap)];
   }
 
-  Future<void> delete(Recording recording) => recording.file.delete();
+  /// Deletes the file natively, which also cancels its pending backup.
+  Future<void> delete(Recording recording) => _methods.invokeMethod<void>(
+    'deleteRecording',
+    {'path': recording.file.path},
+  );
 
   /// Opens the Android share sheet for [recording].
   Future<void> share(Recording recording) => SharePlus.instance.share(

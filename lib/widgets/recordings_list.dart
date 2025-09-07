@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/recording.dart';
 import '../utils/formatters.dart';
+import 'backup_status.dart';
 
 /// Saved recordings, or an empty state when there are none.
 class RecordingsList extends StatelessWidget {
@@ -10,11 +11,17 @@ class RecordingsList extends StatelessWidget {
     required this.recordings,
     required this.onShare,
     required this.onDelete,
+    required this.onRetryUpload,
+    this.showBackup = false,
   });
 
   final List<Recording> recordings;
   final ValueChanged<Recording> onShare;
   final ValueChanged<Recording> onDelete;
+  final ValueChanged<Recording> onRetryUpload;
+
+  /// Shows each recording's Telegram backup status.
+  final bool showBackup;
 
   @override
   Widget build(BuildContext context) {
@@ -28,13 +35,23 @@ class RecordingsList extends StatelessWidget {
         return ListTile(
           leading: const Icon(Icons.audio_file_outlined),
           title: Text(recording.name),
-          subtitle: Text(
-            [
-              formatDateTime(recording.createdAt),
-              if (recording.duration != null)
-                formatDuration(recording.duration!),
-              formatBytes(recording.sizeBytes),
-            ].join(' · '),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                [
+                  formatDateTime(recording.createdAt),
+                  if (recording.duration != null)
+                    formatDuration(recording.duration!),
+                  formatBytes(recording.sizeBytes),
+                ].join(' · '),
+              ),
+              if (showBackup)
+                BackupStatus(
+                  upload: recording.upload,
+                  onRetry: () => onRetryUpload(recording),
+                ),
+            ],
           ),
           onTap: () => onShare(recording),
           trailing: Row(

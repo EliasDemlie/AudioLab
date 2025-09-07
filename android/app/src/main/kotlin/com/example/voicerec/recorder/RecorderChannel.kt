@@ -4,16 +4,18 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
+import com.example.voicerec.backup.TelegramBackup
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 /**
  * Bridge between Flutter and [RecordingService].
  *
  * - Method channel: `startRecording`, `pauseRecording`, `resumeRecording`,
- *   `stopRecording`, `getRecordingState`, `listRecordings`.
+ *   `stopRecording`, `getRecordingState`, `listRecordings`, `deleteRecording`.
  * - Event channel: streams [RecorderState] maps, starting with the current state.
  *
  * Only the UI depends on this class; the service records without it.
@@ -60,6 +62,7 @@ class RecorderChannel(
             }
             "getRecordingState" -> result.success(RecordingService.state.toMap())
             "listRecordings" -> listRecordings(result)
+            "deleteRecording" -> deleteRecording(call.argument<String>("path"), result)
             else -> result.notImplemented()
         }
     }
@@ -103,7 +106,10 @@ class RecorderChannel(
         activity.requestPermissions(missing.toTypedArray(), PERMISSION_REQUEST_CODE)
     }
 
-    /** Recovers interrupted recordings, then lists all of them, off the main thread. */
+    /**
+     * Recovers interrupted recordings, then lists all of them with their
+     * Telegram backup status, off the main thread.
+     */
     private fun listRecordings(result: MethodChannel.Result) {
         val context = activity.applicationContext
         RecordingFiles.io.execute {
@@ -111,12 +117,30 @@ class RecorderChannel(
             val activePath = if (state.isActive) state.filePath else null
             val recordings = try {
                 RecordingFiles.recoverInterrupted(context, activePath)
-                RecordingFiles.list(context, activePath)
+                val uploads = TelegramBackup.uploadsByPath(context)
+                RecordingFiles.list(context, activePath).map { it + ("upload" to uploads[it["path"]]) }
             } catch (e: Exception) {
                 activity.runOnUiThread { result.error("LIST_FAILED", e.message, null) }
                 return@execute
             }
             activity.runOnUiThread { result.success(recordings) }
+        }
+    }
+
+    /** Deletes a recording at the user's request and cancels its pending upload. */
+    private fun deleteRecording(path: String?, result: MethodChannel.Result) {
+        if (path == null) {
+            result.error("BAD_ARGS", "Missing path", null)
+            return
+        }
+        val context = activity.applicationContext
+        RecordingFiles.io.execute {
+            val file = File(path)
+            TelegramBackup.forget(context, file)
+            val deleted = !file.exists() || file.delete()
+            activity.runOnUiThread {
+                if (deleted) result.success(null) else result.error("DELETE_FAILED", "Could not delete file", null)
+            }
         }
     }
 
