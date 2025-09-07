@@ -74,6 +74,16 @@ class SqliteUploadStore(
             buildList { while (cursor.moveToNext()) add(cursor.toRecord()) }
         }
 
+    /** Records whose ID starts with [prefix], newest ID first. */
+    fun findByPrefix(prefix: String): List<UploadRecord> =
+        readableDatabase.query(
+            TABLE, null, "recording_id LIKE ? ESCAPE '\\'",
+            arrayOf(prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"),
+            null, null, "recording_id DESC",
+        ).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.toRecord()) }
+        }
+
     override fun get(recordingId: String): UploadRecord? =
         readableDatabase.query(TABLE, null, "recording_id = ?", arrayOf(recordingId), null, null, null)
             .use { if (it.moveToFirst()) it.toRecord() else null }
@@ -140,6 +150,7 @@ class SqliteUploadStore(
         lastError = getStringOrNull("last_error"),
         telegramMessageId = getColumnIndexOrThrow("telegram_message_id").let { if (isNull(it)) null else getLong(it) },
         telegramFileId = getStringOrNull("telegram_file_id"),
+        updatedAtMillis = getLong(getColumnIndexOrThrow("updated_at")),
     )
 
     private fun Cursor.getStringOrNull(column: String): String? =

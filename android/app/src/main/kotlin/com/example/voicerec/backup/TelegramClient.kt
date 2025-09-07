@@ -96,7 +96,11 @@ class TelegramClient(
         append(value).append("\r\n")
     }
 
-    private fun mimeType(file: File) = if (file.extension == "aac") "audio/aac" else "audio/mp4"
+    private fun mimeType(file: File) = when (file.extension) {
+        "aac" -> "audio/aac"
+        "vcf" -> "text/vcard"
+        else -> "audio/mp4"
+    }
 
     companion object {
         /** Bot API limit for uploads: 50 MB. */

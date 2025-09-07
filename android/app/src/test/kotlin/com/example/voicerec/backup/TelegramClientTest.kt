@@ -105,6 +105,17 @@ class TelegramClientTest {
     }
 
     @Test
+    fun `contacts file is sent as vcard with unicode intact`() {
+        responseBody = """{"ok":true,"result":{"message_id":56,"document":{"file_id":"VCF"}}}"""
+        val vcf = tmp.newFile("contacts_1.vcf").apply { writeText("FN:አበበ\r\n", Charsets.UTF_8) }
+
+        val result = client().send(vcf, "Contacts backup") {}
+
+        assertEquals(SendResult.Sent(56, "VCF", responseBody), result)
+        assertTrue(requestBody.contains("filename=\"contacts_1.vcf\"\r\nContent-Type: text/vcard\r\n\r\nFN:አበበ"))
+    }
+
+    @Test
     fun `server error is retryable`() {
         responseCode = 502
         responseBody = """{"ok":false,"error_code":502,"description":"Bad Gateway"}"""

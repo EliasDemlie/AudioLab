@@ -13,7 +13,11 @@ enum class UploadStatus(val wireName: String) {
 
 /** One recording's Telegram backup, as stored in the upload queue. */
 data class UploadRecord(
-    /** Unique per recording: the file name without extension (e.g. `rec_20261012_174451`). */
+    /**
+     * Unique per uploaded file: the file name without extension, e.g.
+     * `rec_20261012_174451` for a recording or `contacts_20261012_174451` for
+     * a contacts backup.
+     */
     val recordingId: String,
     val filePath: String,
     val status: UploadStatus,
@@ -23,6 +27,7 @@ data class UploadRecord(
     val lastError: String? = null,
     val telegramMessageId: Long? = null,
     val telegramFileId: String? = null,
+    val updatedAtMillis: Long = 0,
 ) {
     fun toMap(): Map<String, Any?> = mapOf(
         "recordingId" to recordingId,
@@ -32,6 +37,7 @@ data class UploadRecord(
         "attempts" to attempts,
         "error" to lastError,
         "telegramMessageId" to telegramMessageId,
+        "updatedAtMillis" to updatedAtMillis,
     )
 }
 
