@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                     // Modern JS syntax
+    "module": "CommonJS",                   // Node.js module system
+    "rootDir": "./src",                     // Your source files
+    "outDir": "./dist",                     // Compiled JS output
+    "strict": true,                         // Enable strict type checking
+    "esModuleInterop": true,                // For import compatibility
+    "moduleResolution": "node",             // How modules get resolved
+    "skipLibCheck": true,                   // Skip type checking for libs
+    "sourceMap": true,                      // For debugging TS with sourcemaps
+    "declaration": true,                    // Generates `.d.ts` files
+    "declarationMap": true,                 // Maps declarations to source TS files
+    "noUncheckedIndexedAccess": true,       // Optional: safer indexed access
+    "exactOptionalPropertyTypes": true      // Optional: stricter optional types
+  },
+  "include": ["src", "src/server.ts"]
+}
