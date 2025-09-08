@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique  @default(uuid())
+  email         String    @unique
+  firstName     String
+  lastName      String
+  password      String
+  isOnline      Boolean   @default(false)
+  lastSeen      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime?  @updatedAt
+  sentMessages  Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  conversationsAsUser1 Conversation[] @relation("User1")
+  conversationsAsUser2 Conversation[] @relation("User2")
+  @@index([username])
+  @@index([email])
+}
+
+model Conversation {
+  id            String    @id @default(uuid())
+  user1Id       String
+  user2Id       String
+  user1         User      @relation("User1", fields: [user1Id], references: [id])
+  user2         User      @relation("User2", fields: [user2Id], references: [id])
+  messages      Message[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@unique([user1Id, user2Id])
+  @@index([user1Id])
+  @@index([user2Id])
+}
+
+model Message {
+  id            String    @id @default(uuid())
+  content       String?
+  attachmentUrl String?
+  attachmentType String?
+  senderId      String
+  recipientId   String
+  conversationId String
+  sender        User      @relation("SentMessages", fields: [senderId], references: [id])
+  recipient     User      @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  conversation  Conversation @relation(fields: [conversationId], references: [id])
+  isSent        Boolean   @default(true)
+  isDelivered   Boolean   @default(false)
+  isRead        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([conversationId])
+}
