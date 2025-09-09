@@ -111,6 +111,7 @@ class RecorderChannel(
      * backups off the main thread.
      */
     private fun listRecordings(result: MethodChannel.Result) {
+        val context = activity.applicationContext
         RecordingFiles.io.execute {
             val state = RecordingService.state
             val activePath = if (state.isActive) state.filePath else null
@@ -132,7 +133,6 @@ class RecorderChannel(
             result.error("BAD_ARGS", "Missing path", null)
             return
         }
-        val context = activity.applicationContext
         RecordingFiles.io.execute {
             val file = File(path)
             val deleted = !file.exists() || file.delete()
