@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
-import com.example.voicerec.contacts.ContactsBackup
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -107,8 +106,7 @@ class RecorderChannel(
     }
 
     /**
-     * Recovers interrupted recordings, then lists recordings and local contact
-     * backups off the main thread.
+     * Recovers interrupted recordings, then lists saved recordings off the main thread.
      */
     private fun listRecordings(result: MethodChannel.Result) {
         val context = activity.applicationContext
@@ -117,8 +115,7 @@ class RecorderChannel(
             val activePath = if (state.isActive) state.filePath else null
             val recordings = try {
                 RecordingFiles.recoverInterrupted(context, activePath)
-                (RecordingFiles.list(context, activePath) + ContactsBackup.list(context))
-                    .sortedByDescending { it["modifiedAtMillis"] as Long }
+                RecordingFiles.list(context, activePath)
             } catch (e: Exception) {
                 activity.runOnUiThread { result.error("LIST_FAILED", e.message, null) }
                 return@execute
@@ -127,7 +124,7 @@ class RecorderChannel(
         }
     }
 
-    /** Deletes a saved recording or contact backup at the user's request. */
+    /** Deletes a saved recording at the user's request. */
     private fun deleteRecording(path: String?, result: MethodChannel.Result) {
         if (path == null) {
             result.error("BAD_ARGS", "Missing path", null)
