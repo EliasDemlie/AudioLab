@@ -26,8 +26,11 @@ class RecorderController extends ChangeNotifier {
   Future<Recording?>? _stopFuture;
   bool _disposed = false;
   bool _isReadingLevel = false;
+  bool _recorderTabVisible = true;
   RecorderStatus? _pendingStatus;
   final ValueNotifier<double> audioLevel = ValueNotifier(0);
+  final ValueNotifier<List<Recording>> recordingsListenable =
+      ValueNotifier<List<Recording>>(const []);
   final List<Duration> _bookmarks = [];
 
   RecorderState _state = const RecorderState.idle();
@@ -150,6 +153,26 @@ class RecorderController extends ChangeNotifier {
 
   Future<PlaybackState> getPlaybackState() => _service.getPlaybackState();
 
+  /// Pauses recorder-screen timers while that tab is offscreen.
+  void setRecorderTabVisible(bool visible) {
+    if (_recorderTabVisible == visible || _disposed) return;
+    _recorderTabVisible = visible;
+    if (status == RecorderStatus.recording && visible) {
+      _ticker ??= Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => notifyListeners(),
+      );
+      _startLevelTicker();
+    } else {
+      _ticker?.cancel();
+      _ticker = null;
+      _levelTicker?.cancel();
+      _levelTicker = null;
+      if (!visible) audioLevel.value = 0;
+    }
+    if (visible) notifyListeners();
+  }
+
   void addBookmark() {
     if (status != RecorderStatus.recording && status != RecorderStatus.paused) {
       return;
@@ -163,7 +186,7 @@ class RecorderController extends ChangeNotifier {
       final recordings = await _service.loadRecordings();
       if (_disposed) return;
       _recordings = recordings;
-      notifyListeners();
+      recordingsListenable.value = recordings;
     } on PlatformException catch (e) {
       _errors.add(e.message ?? 'Could not load recordings');
     }
@@ -191,14 +214,13 @@ class RecorderController extends ChangeNotifier {
 
     // Tick only while the clock is actually running; paused shows a fixed time.
     if (state.status == RecorderStatus.recording) {
-      _ticker ??= Timer.periodic(
-        const Duration(seconds: 1),
-        (_) => notifyListeners(),
-      );
-      _levelTicker ??= Timer.periodic(
-        const Duration(milliseconds: 80),
-        (_) => _readAudioLevel(),
-      );
+      if (_recorderTabVisible) {
+        _ticker ??= Timer.periodic(
+          const Duration(seconds: 1),
+          (_) => notifyListeners(),
+        );
+        _startLevelTicker();
+      }
     } else {
       _ticker?.cancel();
       _ticker = null;
@@ -219,6 +241,13 @@ class RecorderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _startLevelTicker() {
+    _levelTicker ??= Timer.periodic(
+      const Duration(milliseconds: 80),
+      (_) => _readAudioLevel(),
+    );
+  }
+
   String _baseName(String path) =>
       File(path).uri.pathSegments.last.replaceFirst(RegExp(r'\.[^.]+$'), '');
 
@@ -227,7 +256,11 @@ class RecorderController extends ChangeNotifier {
     _isReadingLevel = true;
     try {
       final peak = await _service.readPeakAmplitude();
-      if (_disposed || status != RecorderStatus.recording) return;
+      if (_disposed ||
+          !_recorderTabVisible ||
+          status != RecorderStatus.recording) {
+        return;
+      }
       audioLevel.value = (peak / 32767).clamp(0.0, 1.0);
     } on PlatformException {
       // Meter failures must never interrupt the recording itself.
@@ -290,6 +323,7 @@ class RecorderController extends ChangeNotifier {
     _levelTicker?.cancel();
     _transitionTimer?.cancel();
     audioLevel.dispose();
+    recordingsListenable.dispose();
     _errors.close();
     super.dispose();
   }
