@@ -37,7 +37,7 @@ object RecordingFiles {
     fun hasFreeSpace(context: Context): Boolean = dir(context).usableSpace >= MIN_FREE_BYTES
 
     fun newRawFile(context: Context, startedAt: Long): File {
-        val base = SimpleDateFormat("'rec_'yyyyMMdd_HHmmss", Locale.US).format(Date(startedAt))
+        val base = SimpleDateFormat("'rec_'yyyyMMdd", Locale.US).format(Date(startedAt))
         val dir = dir(context)
         var file = File(dir, "$base.$RAW_EXTENSION")
         var suffix = 1

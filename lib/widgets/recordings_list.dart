@@ -8,12 +8,14 @@ class RecordingsList extends StatelessWidget {
   const RecordingsList({
     super.key,
     required this.recordings,
+    required this.onOpen,
     required this.onShare,
     required this.onDelete,
     required this.onRefresh,
   });
 
   final List<Recording> recordings;
+  final ValueChanged<Recording> onOpen;
   final ValueChanged<Recording> onShare;
   final ValueChanged<Recording> onDelete;
   final Future<void> Function() onRefresh;
@@ -34,20 +36,22 @@ class RecordingsList extends StatelessWidget {
       onRefresh: onRefresh,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 0, 12, 20),
+        padding: const EdgeInsets.only(bottom: 20),
         itemCount: recordings.length,
         separatorBuilder: (_, _) => Divider(
           height: 1,
           indent: 58,
-          color: Theme.of(context).colorScheme.outlineVariant
-              .withValues(alpha: 0.35),
+          color: Theme.of(
+            context,
+          ).colorScheme.outlineVariant.withValues(alpha: 0.35),
         ),
         itemBuilder: (context, index) {
           final recording = recordings[index];
           final colors = Theme.of(context).colorScheme;
 
           return ListTile(
-            contentPadding: const EdgeInsets.only(left: 2, right: 4),
+            onTap: () => onOpen(recording),
+            contentPadding: const EdgeInsets.only(left: 16, right: 4),
             minVerticalPadding: 10,
             leading: Icon(
               Icons.graphic_eq_rounded,
@@ -68,7 +72,7 @@ class RecordingsList extends StatelessWidget {
                 children: [
                   _FileDetail(
                     icon: Icons.schedule_outlined,
-                    label: formatDateTime(recording.createdAt),
+                    label: formatDate(recording.createdAt),
                   ),
                   if (recording.duration != null)
                     _FileDetail(
@@ -84,6 +88,8 @@ class RecordingsList extends StatelessWidget {
             ),
             trailing: PopupMenuButton<String>(
               tooltip: 'Recording actions',
+              padding: EdgeInsets.zero,
+              iconSize: 22,
               onSelected: (action) {
                 if (action == 'share') onShare(recording);
                 if (action == 'delete') onDelete(recording);

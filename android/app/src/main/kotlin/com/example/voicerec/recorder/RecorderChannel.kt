@@ -3,6 +3,8 @@ package com.example.voicerec.recorder
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.os.Build
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -29,6 +31,7 @@ class RecorderChannel(
 
     /** Result of a `startRecording` call that is waiting for the permission dialog. */
     private var pendingStart: MethodChannel.Result? = null
+    private var player: MediaPlayer? = null
 
     init {
         methodChannel.setMethodCallHandler(this)
@@ -41,6 +44,7 @@ class RecorderChannel(
         methodChannel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
         RecordingService.listener = null
+        releasePlayer()
         pendingStart = null
     }
 
@@ -60,6 +64,30 @@ class RecorderChannel(
                 result.success(null)
             }
             "readPeakAmplitude" -> result.success(RecordingService.readPeakAmplitude())
+            "playRecording" -> playRecording(call.argument<String>("path"), result)
+            "pausePlayback" -> {
+                player?.takeIf { it.isPlaying }?.pause()
+                result.success(null)
+            }
+            "resumePlayback" -> {
+                player?.let { active ->
+                    if (!active.isPlaying) {
+                        if (active.currentPosition >= active.duration) active.seekTo(0)
+                        active.start()
+                    }
+                }
+                result.success(null)
+            }
+            "seekPlayback" -> {
+                val position = call.argument<Int>("positionMillis") ?: 0
+                player?.seekTo(position.coerceAtLeast(0))
+                result.success(null)
+            }
+            "getPlaybackState" -> result.success(playbackState())
+            "stopPlayback" -> {
+                releasePlayer()
+                result.success(null)
+            }
             "getRecordingState" -> result.success(RecordingService.state.toMap())
             "listRecordings" -> listRecordings(result)
             "deleteRecording" -> deleteRecording(call.argument<String>("path"), result)
@@ -138,6 +166,69 @@ class RecorderChannel(
                 if (deleted) result.success(null) else result.error("DELETE_FAILED", "Could not delete file", null)
             }
         }
+    }
+
+    private fun playRecording(path: String?, result: MethodChannel.Result) {
+        if (path == null || !File(path).isFile) {
+            result.error("PLAYBACK_FAILED", "Recording file was not found.", null)
+            return
+        }
+        releasePlayer()
+        try {
+            val mediaPlayer = MediaPlayer()
+            player = mediaPlayer
+            mediaPlayer.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
+            mediaPlayer.setDataSource(path)
+            mediaPlayer.setOnPreparedListener { prepared ->
+                if (player !== prepared) {
+                    prepared.release()
+                    return@setOnPreparedListener
+                }
+                try {
+                    prepared.start()
+                    result.success(null)
+                } catch (_: IllegalStateException) {
+                    result.error("PLAYBACK_FAILED", "Could not start playback.", null)
+                }
+            }
+            mediaPlayer.setOnErrorListener { failed, what, extra ->
+                if (player === failed) player = null
+                failed.release()
+                result.error("PLAYBACK_FAILED", "Could not play this recording.", mapOf("what" to what, "extra" to extra))
+                true
+            }
+            mediaPlayer.setOnCompletionListener { completed -> completed.seekTo(0) }
+            mediaPlayer.prepareAsync()
+        } catch (e: Exception) {
+            releasePlayer()
+            result.error("PLAYBACK_FAILED", e.message ?: "Could not play this recording.", null)
+        }
+    }
+
+    private fun playbackState(): Map<String, Any> {
+        val active = player
+        if (active == null) {
+            return mapOf("positionMillis" to 0, "durationMillis" to 0, "isPlaying" to false)
+        }
+        return try {
+            mapOf(
+                "positionMillis" to active.currentPosition,
+                "durationMillis" to active.duration,
+                "isPlaying" to active.isPlaying,
+            )
+        } catch (_: IllegalStateException) {
+            mapOf("positionMillis" to 0, "durationMillis" to 0, "isPlaying" to false)
+        }
+    }
+
+    private fun releasePlayer() {
+        player?.runCatching { release() }
+        player = null
     }
 
     private fun requiredPermissions(): List<String> = buildList {

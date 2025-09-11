@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +21,7 @@ class RecorderController extends ChangeNotifier {
   StreamSubscription<RecorderState>? _stateSub;
   Timer? _ticker;
   Timer? _levelTicker;
+  Completer<void>? _stopCompleter;
   bool _disposed = false;
   final ValueNotifier<double> audioLevel = ValueNotifier(0);
   final List<Duration> _bookmarks = [];
@@ -65,7 +67,51 @@ class RecorderController extends ChangeNotifier {
 
   Future<void> resume() => _run(_service.resume);
 
-  Future<void> stop() => _run(_service.stop);
+  Future<Recording?> stopAndWait() async {
+    if (!isActive) return null;
+    final activePath = _state.filePath;
+    final completion = Completer<void>();
+    _stopCompleter = completion;
+    await _run(_service.stop);
+
+    if (!_state.isActive && !completion.isCompleted) completion.complete();
+    try {
+      await completion.future.timeout(const Duration(seconds: 60));
+    } on TimeoutException {
+      _errors.add('Recording is taking longer than expected to save.');
+      return null;
+    } finally {
+      if (identical(_stopCompleter, completion)) _stopCompleter = null;
+    }
+
+    await refreshRecordings();
+    if (_recordings.isEmpty) return null;
+    if (activePath == null) return _recordings.first;
+    final activeBase = _baseName(activePath);
+    for (final recording in _recordings) {
+      if (_baseName(recording.file.path) == activeBase) return recording;
+    }
+    return null;
+  }
+
+  Future<Recording> rename(Recording recording, String title) async {
+    final renamed = await _service.rename(recording, title);
+    await refreshRecordings();
+    return renamed;
+  }
+
+  Future<void> play(Recording recording) => _service.play(recording);
+
+  Future<void> pausePlayback() => _service.pausePlayback();
+
+  Future<void> resumePlayback() => _service.resumePlayback();
+
+  Future<void> stopPlayback() => _service.stopPlayback();
+
+  Future<void> seekPlayback(Duration position) =>
+      _service.seekPlayback(position);
+
+  Future<PlaybackState> getPlaybackState() => _service.getPlaybackState();
 
   void addBookmark() {
     if (status != RecorderStatus.recording && status != RecorderStatus.paused) {
@@ -126,8 +172,15 @@ class RecorderController extends ChangeNotifier {
     notifyListeners();
 
     // A recording just finished (from the app or the notification).
-    if (wasActive && !state.isActive) refreshRecordings();
+    if (wasActive && !state.isActive) {
+      final completion = _stopCompleter;
+      if (completion != null && !completion.isCompleted) completion.complete();
+      refreshRecordings();
+    }
   }
+
+  String _baseName(String path) =>
+      File(path).uri.pathSegments.last.replaceFirst(RegExp(r'\.[^.]+$'), '');
 
   Future<void> _readAudioLevel() async {
     try {
