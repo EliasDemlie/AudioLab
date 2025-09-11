@@ -28,6 +28,7 @@ class RecorderChannel(
 
     private val methodChannel = MethodChannel(messenger, METHOD_CHANNEL)
     private val eventChannel = EventChannel(messenger, EVENT_CHANNEL)
+    private val libraryDatabase = RecordingLibraryDatabase(activity.applicationContext)
 
     /** Result of a `startRecording` call that is waiting for the permission dialog. */
     private var pendingStart: MethodChannel.Result? = null
@@ -90,6 +91,8 @@ class RecorderChannel(
             }
             "getRecordingState" -> result.success(RecordingService.state.toMap())
             "listRecordings" -> listRecordings(result)
+            "listLibraryRecordings" -> listLibraryRecordings(result)
+            "updateRecordingPath" -> updateRecordingPath(call, result)
             "deleteRecording" -> deleteRecording(call.argument<String>("path"), result)
             else -> result.notImplemented()
         }
@@ -138,18 +141,58 @@ class RecorderChannel(
      * Recovers interrupted recordings, then lists saved recordings off the main thread.
      */
     private fun listRecordings(result: MethodChannel.Result) {
+        loadLibrary(result, includeDeleted = false, includeUnavailable = false)
+    }
+
+    private fun listLibraryRecordings(result: MethodChannel.Result) {
+        loadLibrary(result, includeDeleted = true, includeUnavailable = true)
+    }
+
+    private fun loadLibrary(
+        result: MethodChannel.Result,
+        includeDeleted: Boolean,
+        includeUnavailable: Boolean,
+    ) {
         val context = activity.applicationContext
         RecordingFiles.io.execute {
             val state = RecordingService.state
             val activePath = if (state.isActive) state.filePath else null
             val recordings = try {
                 RecordingFiles.recoverInterrupted(context, activePath)
-                RecordingFiles.list(context, activePath)
+                val files = RecordingFiles.list(
+                    context,
+                    activePath,
+                    includeDuration = false,
+                )
+                libraryDatabase.synchronize(files).filter { recording ->
+                    (includeDeleted || recording["deletedAtMillis"] == null) &&
+                        (includeUnavailable || recording["audioAvailable"] == true)
+                }
             } catch (e: Exception) {
                 activity.runOnUiThread { result.error("LIST_FAILED", e.message, null) }
                 return@execute
             }
             activity.runOnUiThread { result.success(recordings) }
+        }
+    }
+
+    private fun updateRecordingPath(call: MethodCall, result: MethodChannel.Result) {
+        val oldPath = call.argument<String>("oldPath")
+        val newPath = call.argument<String>("newPath")
+        val title = call.argument<String>("title")
+        if (oldPath == null || newPath == null || title == null) {
+            result.error("BAD_ARGS", "Missing recording path or title", null)
+            return
+        }
+        RecordingFiles.io.execute {
+            try {
+                libraryDatabase.updateFilePath(oldPath, newPath, title)
+                activity.runOnUiThread { result.success(null) }
+            } catch (e: Exception) {
+                activity.runOnUiThread {
+                    result.error("METADATA_UPDATE_FAILED", e.message, null)
+                }
+            }
         }
     }
 
@@ -160,10 +203,21 @@ class RecorderChannel(
             return
         }
         RecordingFiles.io.execute {
-            val file = File(path)
-            val deleted = !file.exists() || file.delete()
-            activity.runOnUiThread {
-                if (deleted) result.success(null) else result.error("DELETE_FAILED", "Could not delete file", null)
+            try {
+                val file = File(path)
+                val deleted = !file.exists() || file.delete()
+                if (!deleted) {
+                    activity.runOnUiThread {
+                        result.error("DELETE_FAILED", "Could not delete file", null)
+                    }
+                    return@execute
+                }
+                libraryDatabase.removeByPath(path)
+                activity.runOnUiThread { result.success(null) }
+            } catch (e: Exception) {
+                activity.runOnUiThread {
+                    result.error("DELETE_FAILED", e.message, null)
+                }
             }
         }
     }
