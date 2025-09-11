@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../models/recorder_state.dart';
 import '../utils/formatters.dart';
 
-/// Big mic indicator with the running timer.
+/// Elapsed recording timer and microphone status warnings.
 class RecordingStatus extends StatelessWidget {
   const RecordingStatus({
     super.key,
-    required this.status,
     required this.elapsed,
     required this.micSilenced,
   });
 
-  final RecorderStatus status;
   final Duration elapsed;
   final bool micSilenced;
 
@@ -22,21 +19,6 @@ class RecordingStatus extends StatelessWidget {
     final colors = theme.colorScheme;
     return Column(
       children: [
-        Text(
-          switch (status) {
-            RecorderStatus.recording => 'Recording',
-            RecorderStatus.paused => 'Recording Paused',
-            RecorderStatus.stopping => 'Saving Recording',
-            RecorderStatus.idle => 'Ready to Record',
-          },
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: colors.onSurfaceVariant,
-            letterSpacing: 0.2,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 7),
         Text(
           formatDuration(elapsed),
           style: theme.textTheme.displayMedium?.copyWith(
