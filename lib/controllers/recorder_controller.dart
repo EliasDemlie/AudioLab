@@ -21,8 +21,12 @@ class RecorderController extends ChangeNotifier {
   StreamSubscription<RecorderState>? _stateSub;
   Timer? _ticker;
   Timer? _levelTicker;
+  Timer? _transitionTimer;
   Completer<void>? _stopCompleter;
+  Future<Recording?>? _stopFuture;
   bool _disposed = false;
+  bool _isReadingLevel = false;
+  RecorderStatus? _pendingStatus;
   final ValueNotifier<double> audioLevel = ValueNotifier(0);
   final List<Duration> _bookmarks = [];
 
@@ -37,8 +41,8 @@ class RecorderController extends ChangeNotifier {
   List<Recording> get recordings => _recordings;
   List<Duration> get bookmarks => List.unmodifiable(_bookmarks);
 
-  /// True while a request is in flight (e.g. permission dialog open).
-  bool get isBusy => _isBusy;
+  /// True while a request or native state transition is still in flight.
+  bool get isBusy => _isBusy || _pendingStatus != null;
 
   /// Error messages to show to the user.
   Stream<String> get errors => _errors.stream;
@@ -59,20 +63,52 @@ class RecorderController extends ChangeNotifier {
   }
 
   Future<void> start() async {
+    if (isBusy || status != RecorderStatus.idle || _disposed) return;
     _bookmarks.clear();
-    await _run(_service.start);
+    await _runTransition(RecorderStatus.recording, _service.start);
   }
 
-  Future<void> pause() => _run(_service.pause);
+  Future<void> pause() async {
+    if (isBusy || status != RecorderStatus.recording || _disposed) return;
+    await _runTransition(RecorderStatus.paused, _service.pause);
+  }
 
-  Future<void> resume() => _run(_service.resume);
+  Future<void> resume() async {
+    if (isBusy || status != RecorderStatus.paused || _disposed) return;
+    await _runTransition(RecorderStatus.recording, _service.resume);
+  }
 
-  Future<Recording?> stopAndWait() async {
-    if (!isActive) return null;
+  Future<Recording?> stopAndWait() {
+    final activeStop = _stopFuture;
+    if (activeStop != null) return activeStop;
+
+    late final Future<Recording?> operation;
+    operation = _stopAndWait().whenComplete(() {
+      if (identical(_stopFuture, operation)) _stopFuture = null;
+    });
+    _stopFuture = operation;
+    return operation;
+  }
+
+  Future<Recording?> _stopAndWait() async {
+    if (!isActive || _disposed || _isBusy) return null;
+    if (_pendingStatus != null && _pendingStatus != RecorderStatus.stopping) {
+      return null;
+    }
+
     final activePath = _state.filePath;
-    final completion = Completer<void>();
+    final completion = _stopCompleter ?? Completer<void>();
     _stopCompleter = completion;
-    await _run(_service.stop);
+
+    if (status != RecorderStatus.stopping) {
+      _setPendingStatus(RecorderStatus.stopping);
+      final stopSent = await _run(_service.stop);
+      if (!stopSent) {
+        _clearPendingStatus();
+        if (identical(_stopCompleter, completion)) _stopCompleter = null;
+        return null;
+      }
+    }
 
     if (!_state.isActive && !completion.isCompleted) completion.complete();
     try {
@@ -169,37 +205,75 @@ class RecorderController extends ChangeNotifier {
       _levelTicker = null;
       audioLevel.value = 0;
     }
-    notifyListeners();
-
     // A recording just finished (from the app or the notification).
+    if (_pendingStatus == state.status || !state.isActive) {
+      _clearPendingStatus(notify: false);
+    }
+
     if (wasActive && !state.isActive) {
       final completion = _stopCompleter;
       if (completion != null && !completion.isCompleted) completion.complete();
-      refreshRecordings();
+      if (completion == null) unawaited(refreshRecordings());
     }
+    notifyListeners();
   }
 
   String _baseName(String path) =>
       File(path).uri.pathSegments.last.replaceFirst(RegExp(r'\.[^.]+$'), '');
 
   Future<void> _readAudioLevel() async {
+    if (_isReadingLevel) return;
+    _isReadingLevel = true;
     try {
       final peak = await _service.readPeakAmplitude();
       if (_disposed || status != RecorderStatus.recording) return;
       audioLevel.value = (peak / 32767).clamp(0.0, 1.0);
     } on PlatformException {
       // Meter failures must never interrupt the recording itself.
+    } catch (_) {
+      // Ignore transient meter failures; the recording remains active.
+    } finally {
+      _isReadingLevel = false;
     }
   }
 
-  Future<void> _run(Future<void> Function() action) async {
-    if (_isBusy) return;
+  Future<void> _runTransition(
+    RecorderStatus expectedStatus,
+    Future<void> Function() action,
+  ) async {
+    _setPendingStatus(expectedStatus);
+    final succeeded = await _run(action);
+    if (!succeeded) _clearPendingStatus();
+  }
+
+  void _setPendingStatus(RecorderStatus expectedStatus) {
+    _transitionTimer?.cancel();
+    _pendingStatus = expectedStatus;
+    _transitionTimer = Timer(const Duration(seconds: 5), _clearPendingStatus);
+    notifyListeners();
+  }
+
+  void _clearPendingStatus({bool notify = true}) {
+    _transitionTimer?.cancel();
+    _transitionTimer = null;
+    if (_pendingStatus == null) return;
+    _pendingStatus = null;
+    if (notify && !_disposed) notifyListeners();
+  }
+
+  Future<bool> _run(Future<void> Function() action) async {
+    if (_isBusy || _disposed) return false;
     _isBusy = true;
     notifyListeners();
     try {
       await action();
+      return true;
     } on PlatformException catch (e) {
       _errors.add(e.message ?? 'Something went wrong');
+      return false;
+    } catch (e) {
+      _errors.add('Could not complete the recording action: $e');
+      return false;
     } finally {
       _isBusy = false;
       if (!_disposed) notifyListeners();
@@ -213,6 +287,7 @@ class RecorderController extends ChangeNotifier {
     _stateSub?.cancel();
     _ticker?.cancel();
     _levelTicker?.cancel();
+    _transitionTimer?.cancel();
     audioLevel.dispose();
     _errors.close();
     super.dispose();

@@ -28,41 +28,61 @@ class RecordControls extends StatelessWidget {
     final canControl =
         !isBusy &&
         (status == RecorderStatus.recording || status == RecorderStatus.paused);
+    final Widget content;
     if (status == RecorderStatus.idle || status == RecorderStatus.stopping) {
-      return Center(
+      content = Center(
+        key: const ValueKey('idle-controls'),
         child: FilledButton.icon(
           onPressed: status == RecorderStatus.idle && !isBusy ? onStart : null,
-          icon: Icon(
-            status == RecorderStatus.stopping ? Icons.hourglass_top : Icons.mic,
-          ),
+          icon: status == RecorderStatus.stopping || isBusy
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.mic),
           label: Text(
-            status == RecorderStatus.stopping ? 'Saving…' : 'Start recording',
+            status == RecorderStatus.stopping
+                ? 'Saving…'
+                : isBusy
+                ? 'Starting…'
+                : 'Start recording',
           ),
           style: FilledButton.styleFrom(minimumSize: const Size(190, 56)),
         ),
       );
+    } else {
+      content = Row(
+        key: const ValueKey('active-controls'),
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _RoundControl(
+            label: isPaused ? 'Resume' : 'Pause',
+            icon: isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+            color: const Color(0xFF17304A),
+            foreground: Colors.white,
+            onPressed: canControl ? (isPaused ? onResume : onPause) : null,
+          ),
+          _RecordingMicIndicator(
+            isRecording: status == RecorderStatus.recording,
+            isBusy: isBusy,
+          ),
+          _RoundControl(
+            label: 'Stop',
+            icon: Icons.stop_rounded,
+            color: const Color(0xFF17304A),
+            foreground: colors.onSurface,
+            onPressed: canControl ? onStop : null,
+          ),
+        ],
+      );
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _RoundControl(
-          label: isPaused ? 'Resume' : 'Pause',
-          icon: isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-          color: const Color(0xFF17304A),
-          foreground: Colors.white,
-          onPressed: canControl ? (isPaused ? onResume : onPause) : null,
-        ),
-        _RecordingMicIndicator(isRecording: status == RecorderStatus.recording),
-        _RoundControl(
-          label: 'Stop',
-          icon: Icons.stop_rounded,
-          color: const Color(0xFF17304A),
-          foreground: colors.onSurface,
-          onPressed: canControl ? onStop : null,
-        ),
-      ],
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: content,
     );
   }
 }
@@ -104,9 +124,13 @@ class _RoundControl extends StatelessWidget {
 }
 
 class _RecordingMicIndicator extends StatelessWidget {
-  const _RecordingMicIndicator({required this.isRecording});
+  const _RecordingMicIndicator({
+    required this.isRecording,
+    required this.isBusy,
+  });
 
   final bool isRecording;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -134,7 +158,20 @@ class _RecordingMicIndicator extends StatelessWidget {
               ]
             : const [],
       ),
-      child: const Icon(Icons.mic_rounded, color: Colors.white, size: 48),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Icon(Icons.mic_rounded, color: Colors.white, size: 48),
+          if (isBusy)
+            const SizedBox.square(
+              dimension: 82,
+              child: CircularProgressIndicator(
+                color: Colors.white70,
+                strokeWidth: 2,
+              ),
+            ),
+        ],
+      ),
     ),
   );
 }

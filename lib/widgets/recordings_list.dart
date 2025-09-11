@@ -54,15 +54,28 @@ class RecordingsList extends StatelessWidget {
             contentPadding: const EdgeInsets.only(left: 16, right: 4),
             minVerticalPadding: 10,
             leading: Icon(
-              Icons.graphic_eq_rounded,
+              Icons.music_note_rounded,
               color: colors.primary,
               size: 27,
             ),
-            title: Text(
-              recording.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall,
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    recording.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  formatBytes(recording.sizeBytes),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 5),
@@ -70,19 +83,9 @@ class RecordingsList extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 3,
                 children: [
-                  _FileDetail(
-                    icon: Icons.schedule_outlined,
-                    label: formatDate(recording.createdAt),
-                  ),
+                  _FileDetail(label: formatDate(recording.createdAt)),
                   if (recording.duration != null)
-                    _FileDetail(
-                      icon: Icons.timelapse_outlined,
-                      label: formatDuration(recording.duration!),
-                    ),
-                  _FileDetail(
-                    icon: Icons.storage_outlined,
-                    label: formatBytes(recording.sizeBytes),
-                  ),
+                    _FileDetail(label: formatDuration(recording.duration!)),
                 ],
               ),
             ),
@@ -107,9 +110,8 @@ class RecordingsList extends StatelessWidget {
 }
 
 class _FileDetail extends StatelessWidget {
-  const _FileDetail({required this.icon, required this.label});
+  const _FileDetail({required this.label});
 
-  final IconData icon;
   final String label;
 
   @override
@@ -118,8 +120,6 @@ class _FileDetail extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 4),
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
