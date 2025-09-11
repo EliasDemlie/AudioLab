@@ -140,6 +140,25 @@ class RecorderController extends ChangeNotifier {
     return renamed;
   }
 
+  Future<Recording> trimAudio(
+    Recording recording, {
+    required Duration start,
+    required Duration end,
+  }) async {
+    final path = await _service.trimAudio(recording, start: start, end: end);
+    await refreshRecordings();
+    for (final edited in _recordings) {
+      if (edited.file.path == path) return edited;
+    }
+    final file = File(path);
+    return Recording(
+      file: file,
+      createdAt: DateTime.now(),
+      sizeBytes: await file.length(),
+      duration: end - start,
+    );
+  }
+
   Future<void> play(Recording recording) => _service.play(recording);
 
   Future<void> pausePlayback() => _service.pausePlayback();
