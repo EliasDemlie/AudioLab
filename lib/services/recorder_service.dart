@@ -50,6 +50,7 @@ class RecorderService {
         message: 'Enter a name for this recording.',
       );
     }
+    if (safeTitle == recording.title) return recording;
 
     final extension = recording.file.uri.pathSegments.last.split('.').last;
     var target = File('${recording.file.parent.path}/$safeTitle.$extension');
@@ -68,7 +69,13 @@ class RecorderService {
         'title': safeTitle,
       });
     } catch (_) {
-      await renamed.rename(oldPath);
+      // Roll back the file move if catalog metadata could not be updated.
+      // Keep the channel error as the useful failure if rollback also fails.
+      try {
+        await renamed.rename(oldPath);
+      } on FileSystemException {
+        // The original error is still reported to the caller.
+      }
       rethrow;
     }
     return recording.copyWith(
