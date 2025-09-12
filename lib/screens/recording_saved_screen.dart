@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
+import 'audio_effects_screen.dart';
 import '../utils/formatters.dart';
 
 class RecordingSavedScreen extends StatefulWidget {
@@ -331,6 +332,22 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
               label: Text(_editing ? 'Saving edited copy…' : 'Edit audio'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
+              ),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _editing
+                  ? null
+                  : () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            AudioEffectsScreen(controller: widget.controller),
+                      ),
+                    ),
+              icon: const Icon(Icons.tune_rounded),
+              label: const Text('Audio effects'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
               ),
             ),
             const SizedBox(height: 10),
