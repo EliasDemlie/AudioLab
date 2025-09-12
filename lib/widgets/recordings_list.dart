@@ -62,7 +62,7 @@ class RecordingsList extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    recording.name,
+                    recording.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall,
