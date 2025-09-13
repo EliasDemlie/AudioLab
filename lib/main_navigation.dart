@@ -7,6 +7,7 @@ import 'models/recording.dart';
 import 'screens/recordings_tab.dart';
 import 'screens/recorder_tab.dart';
 import 'screens/recording_saved_screen.dart';
+import 'widgets/rename_recording_sheet.dart';
 
 /// App shell. Tab changes only update the index; IndexedStack retains each tab.
 class MainNavigation extends StatefulWidget {
@@ -109,6 +110,19 @@ class _MainNavigationState extends State<MainNavigation> {
     if (confirmed ?? false) await _controller.delete(recording);
   }
 
+  Future<void> _renameRecording(Recording recording) =>
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => RenameRecordingSheet(
+          recording: recording,
+          onRename: (title) async {
+            await _controller.rename(recording, title);
+          },
+        ),
+      );
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('VoicePro'), centerTitle: false),
@@ -120,6 +134,7 @@ class _MainNavigationState extends State<MainNavigation> {
           RecordingsTab(
             controller: _controller,
             onOpen: _openRecording,
+            onRename: _renameRecording,
             onDelete: _confirmDelete,
           ),
         ],

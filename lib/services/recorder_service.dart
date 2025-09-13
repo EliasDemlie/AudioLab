@@ -42,7 +42,8 @@ class RecorderService {
     final cleanedTitle = title
         .trim()
         .replaceAll(RegExp(r'[/\\\u0000-\u001F]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ');
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
     final safeTitle = String.fromCharCodes(cleanedTitle.runes.take(80));
     if (safeTitle.isEmpty) {
       throw PlatformException(
