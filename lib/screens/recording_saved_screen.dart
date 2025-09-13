@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
 import 'audio_effects_screen.dart';
+import 'audio_editor_screen.dart';
 import '../utils/formatters.dart';
 
 class RecordingSavedScreen extends StatefulWidget {
@@ -131,27 +131,6 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
   Future<void> _editAudio() async {
     if (_playbackBusy.value || _editing) return;
     final duration = _duration;
-    if (duration.inMilliseconds < 1000) {
-      _showMessage('Audio length is unavailable, so it cannot be trimmed yet.');
-      return;
-    }
-    final selected = await showDialog<RangeValues>(
-      context: context,
-      builder: (context) => _TrimDialog(duration: duration),
-    );
-    if (selected == null || !mounted) return;
-
-    final start = Duration(
-      milliseconds: (duration.inMilliseconds * selected.start).round(),
-    );
-    final end = Duration(
-      milliseconds: (duration.inMilliseconds * selected.end).round(),
-    );
-    if (end - start < const Duration(seconds: 1)) {
-      _showMessage('Select at least one second of audio.');
-      return;
-    }
-
     setState(() => _editing = true);
     _playbackTicker?.cancel();
     _playbackTicker = null;
@@ -161,22 +140,24 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
       if (!mounted) return;
       _hasStartedPlayback = false;
       _playbackState.value = const PlaybackState();
-      final edited = await widget.controller.trimAudio(
-        _recording,
-        start: start,
-        end: end,
+      final route = MaterialPageRoute<Recording>(
+        builder: (_) => AudioEditorScreen(
+          recording: _recording,
+          controller: widget.controller,
+          duration: duration > Duration.zero ? duration : null,
+        ),
       );
+      final edited = await Navigator.of(context).push(route);
+      await route.completed;
+      // Finish releasing the editor's shared player before enabling playback.
+      await widget.controller.stopPlayback();
       if (!mounted) return;
-      setState(() {
-        _recording = edited;
-        _playbackState.value = const PlaybackState();
-        _hasStartedPlayback = false;
-      });
-      _showMessage('Edited audio saved as a new recording.');
-    } on PlatformException catch (e) {
-      _showMessage(e.message ?? 'Could not edit this recording.');
-    } on FileSystemException catch (e) {
-      _showMessage(e.message);
+      if (edited != null) {
+        setState(() => _recording = edited);
+        _showMessage('Edited audio saved as a new recording.');
+      }
+    } on PlatformException catch (error) {
+      _showMessage(error.message ?? 'Could not open the audio editor.');
     } finally {
       if (mounted) setState(() => _editing = false);
     }
@@ -674,71 +655,5 @@ class _RecordingArtwork extends StatelessWidget {
         ],
       ),
     ),
-  );
-}
-
-class _TrimDialog extends StatefulWidget {
-  const _TrimDialog({required this.duration});
-
-  final Duration duration;
-
-  @override
-  State<_TrimDialog> createState() => _TrimDialogState();
-}
-
-class _TrimDialogState extends State<_TrimDialog> {
-  RangeValues _range = const RangeValues(0, 1);
-
-  Duration _at(double fraction) => Duration(
-    milliseconds: (widget.duration.inMilliseconds * fraction).round(),
-  );
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Trim audio'),
-    content: SizedBox(
-      width: 360,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Drag the handles to choose the part to keep.'),
-          const SizedBox(height: 18),
-          RangeSlider(
-            values: _range,
-            min: 0,
-            max: 1,
-            divisions: 1000,
-            labels: RangeLabels(
-              formatDuration(_at(_range.start)),
-              formatDuration(_at(_range.end)),
-            ),
-            onChanged: (value) => setState(() => _range = value),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(formatDuration(_at(_range.start))),
-              Text(formatDuration(_at(_range.end))),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Keep ${formatDuration(_at(_range.end) - _at(_range.start))}',
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton.icon(
-        onPressed: () => Navigator.pop(context, _range),
-        icon: const Icon(Icons.save_outlined),
-        label: const Text('Save copy'),
-      ),
-    ],
   );
 }
