@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.audiofx.Equalizer
 import android.os.Build
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -33,6 +34,8 @@ class RecorderChannel(
     /** Result of a `startRecording` call that is waiting for the permission dialog. */
     private var pendingStart: MethodChannel.Result? = null
     private var player: MediaPlayer? = null
+    private var equalizer: Equalizer? = null
+    private var equalizerGains = listOf(0.0, 0.0, 0.0)
 
     init {
         methodChannel.setMethodCallHandler(this)
@@ -85,6 +88,7 @@ class RecorderChannel(
                 result.success(null)
             }
             "getPlaybackState" -> result.success(playbackState())
+            "setPlaybackEqualizer" -> setPlaybackEqualizer(call, result)
             "stopPlayback" -> {
                 releasePlayer()
                 result.success(null)
@@ -270,6 +274,9 @@ class RecorderChannel(
                     return@setOnPreparedListener
                 }
                 try {
+                    // EQ is optional on some devices; never prevent playback if
+                    // the platform audio effect cannot be created.
+                    runCatching { attachEqualizer(prepared.audioSessionId) }
                     prepared.start()
                     result.success(null)
                 } catch (_: IllegalStateException) {
@@ -290,6 +297,47 @@ class RecorderChannel(
         }
     }
 
+    private fun setPlaybackEqualizer(call: MethodCall, result: MethodChannel.Result) {
+        val gains = call.argument<List<Number>>("gains")
+        if (gains == null || gains.size != 3) {
+            result.error("BAD_ARGS", "Expected three equalizer values.", null)
+            return
+        }
+        equalizerGains = gains.map { it.toDouble().coerceIn(-1.0, 1.0) }
+        val active = player
+        if (active != null) {
+            try {
+                attachEqualizer(active.audioSessionId)
+            } catch (e: Exception) {
+                result.error("EFFECT_UNAVAILABLE", "Audio effects are not available on this device.", null)
+                return
+            }
+        }
+        result.success(null)
+    }
+
+    private fun attachEqualizer(sessionId: Int) {
+        val effect = equalizer ?: Equalizer(0, sessionId).also { equalizer = it }
+        effect.enabled = true
+        val bands = effect.numberOfBands.toInt()
+        if (bands == 0) return
+        val range = effect.bandLevelRange
+        val targets = listOf(100.0, 1000.0, 8000.0)
+        val selected = targets.map { target ->
+            (0 until bands).minByOrNull { index ->
+                val center = effect.getCenterFreq(index.toShort()).toDouble().coerceAtLeast(1.0)
+                kotlin.math.abs(kotlin.math.ln(center / target))
+            }
+        }
+        selected.forEachIndexed { index, band ->
+            if (band != null) {
+                val level = (equalizerGains[index] * range[1]).toInt()
+                    .coerceIn(range[0].toInt(), range[1].toInt())
+                effect.setBandLevel(band.toShort(), level.toShort())
+            }
+        }
+    }
+
     private fun playbackState(): Map<String, Any> {
         val active = player
         if (active == null) {
@@ -307,6 +355,8 @@ class RecorderChannel(
     }
 
     private fun releasePlayer() {
+        equalizer?.runCatching { release() }
+        equalizer = null
         player?.runCatching { release() }
         player = null
     }

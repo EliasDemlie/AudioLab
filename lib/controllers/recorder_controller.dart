@@ -172,6 +172,9 @@ class RecorderController extends ChangeNotifier {
 
   Future<PlaybackState> getPlaybackState() => _service.getPlaybackState();
 
+  Future<void> setPlaybackEqualizer(List<double> gains) =>
+      _service.setPlaybackEqualizer(gains);
+
   /// Pauses recorder-screen timers while that tab is offscreen.
   void setRecorderTabVisible(bool visible) {
     if (_recorderTabVisible == visible || _disposed) return;
