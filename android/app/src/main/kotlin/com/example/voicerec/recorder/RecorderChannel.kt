@@ -88,6 +88,7 @@ class RecorderChannel(
                 result.success(null)
             }
             "getPlaybackState" -> result.success(playbackState())
+            "getRecordingWaveform" -> getRecordingWaveform(call, result)
             "setPlaybackEqualizer" -> setPlaybackEqualizer(call, result)
             "stopPlayback" -> {
                 releasePlayer()
@@ -221,6 +222,30 @@ class RecorderChannel(
             } catch (e: Exception) {
                 activity.runOnUiThread {
                     result.error("EDIT_FAILED", e.message ?: "Could not edit recording.", null)
+                }
+            }
+        }
+    }
+
+    private fun getRecordingWaveform(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        if (path == null) {
+            result.error("BAD_ARGS", "Missing recording path", null)
+            return
+        }
+        val sampleCount = (call.argument<Number>("sampleCount")?.toInt() ?: 160)
+            .coerceIn(32, 512)
+        RecordingFiles.io.execute {
+            try {
+                val waveform = RecordingWaveform.extract(File(path), sampleCount)
+                activity.runOnUiThread { result.success(waveform) }
+            } catch (e: Exception) {
+                activity.runOnUiThread {
+                    result.error(
+                        "WAVEFORM_FAILED",
+                        e.message ?: "Could not read the recording waveform.",
+                        null,
+                    )
                 }
             }
         }
