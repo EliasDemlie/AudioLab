@@ -30,6 +30,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   RecordingWaveform? _waveform;
   RangeValues _selection = const RangeValues(0, 1);
   Duration _position = Duration.zero;
+  final ValueNotifier<double> _positionProgress = ValueNotifier(0);
   Timer? _ticker;
   String? _loadError;
   bool _loading = true;
@@ -62,6 +63,14 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
     ),
   );
 
+  void _setPosition(Duration position) {
+    _position = position;
+    final durationMillis = _duration.inMilliseconds;
+    _positionProgress.value = durationMillis > 0
+        ? (position.inMilliseconds / durationMillis).clamp(0.0, 1.0)
+        : 0;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +81,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   void dispose() {
     _revision++;
     _ticker?.cancel();
+    _positionProgress.dispose();
     unawaited(widget.controller.stopPlayback());
     super.dispose();
   }
@@ -90,7 +100,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
       setState(() {
         _waveform = waveform;
         _selection = const RangeValues(0, 1);
-        _position = Duration.zero;
+        _setPosition(Duration.zero);
       });
     } catch (error) {
       if (mounted) {
@@ -156,7 +166,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
         }
         if (!mounted) return;
         setState(() {
-          _position = target;
+          _setPosition(target);
           _playing = true;
         });
         _startTicker();
@@ -182,11 +192,11 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
         if (!mounted || revision != _revision) return;
         setState(() {
           // Native playback can return to zero when the original file ends.
-          _position = _end;
+          _setPosition(_end);
           _playing = false;
         });
       } else {
-        setState(() => _position = _bounded(state.position));
+        _setPosition(_bounded(state.position));
       }
     } catch (error) {
       _cancelTicker();
@@ -208,7 +218,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
     if (!_ready || _busy || _saving) return;
     final target = _bounded(position);
     _revision++;
-    setState(() => _position = target);
+    setState(() => _setPosition(target));
     if (!_prepared) return;
     setState(() => _busy = true);
     try {
@@ -235,7 +245,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
     _cancelTicker();
     setState(() {
       _selection = RangeValues(start, end);
-      _position = _bounded(_position);
+      _setPosition(_bounded(_position));
       _playing = false;
       _busy = wasPlaying;
     });
@@ -311,10 +321,6 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final enabled = _ready && !_busy && !_saving;
-    final position = _duration > Duration.zero
-        ? (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
-
     return PopScope(
       canPop: !_saving && !_busy,
       child: Scaffold(
@@ -380,8 +386,8 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                  const SizedBox(height: 18),
-                     Text(
+                    const SizedBox(height: 18),
+                    Text(
                       widget.recording.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -389,89 +395,91 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                         letterSpacing: -0.5,
                       ),
                     ),
-_loading
-    ? const SizedBox(
-        height: 220,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(strokeWidth: 2),
-              SizedBox(height: 16),
-              Text('Loading waveform…'),
-            ],
-          ),
-        ),
-      )
-    : _loadError != null
-        ? Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.multitrack_audio_rounded,
-                  size: 40,
-                  color: colors.onSurfaceVariant,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _loadError!,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _loadWaveform,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Retry'),
-                ),
-              ],
-            ),
-          )
-        : Column(
-            children: [
-              const SizedBox(height: 12),
-              AudioCropWaveform(
-                peaks: _waveform!.peaks,
-                selection: _selection,
-                position: position,
-                minimumSelection: _minimumSelection,
-                enabled: enabled,
-                onSelectionChanged: _changeSelection,
-                onSeek: (fraction) => _seek(_at(fraction)),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: LayoutBuilder(
-                  builder: (context, constraints) => Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _time(Duration.zero),
-                          style: theme.textTheme.labelSmall,
-                        ),
-                      ),
-                      if (constraints.maxWidth >= 320 &&
-                          MediaQuery.textScalerOf(context).scale(12) <= 16)
-                        Expanded(
-                          child: Text(
-                            _time(_at(0.5)),
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.labelSmall,
+                    _loading
+                        ? const SizedBox(
+                            height: 220,
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(strokeWidth: 2),
+                                  SizedBox(height: 16),
+                                  Text('Loading waveform…'),
+                                ],
+                              ),
+                            ),
+                          )
+                        : _loadError != null
+                        ? Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.multitrack_audio_rounded,
+                                  size: 40,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(_loadError!, textAlign: TextAlign.center),
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: _loadWaveform,
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Column(
+                            children: [
+                              const SizedBox(height: 12),
+                              AudioCropWaveform(
+                                peaks: _waveform!.peaks,
+                                selection: _selection,
+                                position: _positionProgress.value,
+                                positionListenable: _positionProgress,
+                                minimumSelection: _minimumSelection,
+                                enabled: enabled,
+                                onSelectionChanged: _changeSelection,
+                                onSeek: (fraction) => _seek(_at(fraction)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) => Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _time(Duration.zero),
+                                          style: theme.textTheme.labelSmall,
+                                        ),
+                                      ),
+                                      if (constraints.maxWidth >= 320 &&
+                                          MediaQuery.textScalerOf(context)
+                                                  .scale(12) <=
+                                              16)
+                                        Expanded(
+                                          child: Text(
+                                            _time(_at(0.5)),
+                                            textAlign: TextAlign.center,
+                                            style: theme.textTheme.labelSmall,
+                                          ),
+                                        ),
+                                      Expanded(
+                                        child: Text(
+                                          _time(_duration),
+                                          textAlign: TextAlign.end,
+                                          style: theme.textTheme.labelSmall,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      Expanded(
-                        child: Text(
-                          _time(_duration),
-                          textAlign: TextAlign.end,
-                          style: theme.textTheme.labelSmall,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -570,12 +578,15 @@ _loading
                       ],
                     ),
                     const SizedBox(height: 14),
-                    Text(
-                      '${_time(_position, precise: true)} / ${_time(_duration)}',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    ValueListenableBuilder<double>(
+                      valueListenable: _positionProgress,
+                      builder: (context, progress, _) => Text(
+                        '${_time(Duration(milliseconds: (_duration.inMilliseconds * progress).round()), precise: true)} / ${_time(_duration)}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 6),
