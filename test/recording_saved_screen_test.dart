@@ -34,6 +34,9 @@ void main() {
       expect(label.softWrap, isFalse);
     }
     final heading = tester.widget<Text>(find.text('Shape your sound'));
+    final description = tester.widget<Text>(
+      find.text('Adjust playback EQ for a clearer voice preview.'),
+    );
     final screenTheme = Theme.of(tester.element(sliders.first));
     expect(screenTheme.brightness, Brightness.dark);
     expect(
@@ -43,6 +46,17 @@ void main() {
     tester.widget<Slider>(sliders.first).onChanged!(0.5);
     await tester.pump();
     expect(tester.widget<Text>(find.text('Shape your sound')), same(heading));
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Voice'));
+    await tester.pump();
+    expect(tester.widget<Text>(find.text('Shape your sound')), same(heading));
+    expect(
+      tester.widget<Text>(
+        find.text('Adjust playback EQ for a clearer voice preview.'),
+      ),
+      same(description),
+    );
+    expect(service.equalizerUpdates, hasLength(1));
     expect(tester.takeException(), isNull);
   });
 
@@ -286,6 +300,7 @@ class _PlaybackService extends RecorderService {
   final Duration duration = const Duration(seconds: 20);
   final List<String> calls = [];
   final List<Duration> seeks = [];
+  final List<List<double>> equalizerUpdates = [];
   Duration _position = Duration.zero;
   bool _isPlaying = false;
 
@@ -331,6 +346,11 @@ class _PlaybackService extends RecorderService {
     duration: duration,
     isPlaying: _isPlaying,
   );
+
+  @override
+  Future<void> setPlaybackEqualizer(List<double> gains) async {
+    equalizerUpdates.add(List<double>.of(gains));
+  }
 
   @override
   Future<String> trimAudio(
