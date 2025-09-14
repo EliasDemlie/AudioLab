@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/recorder_state.dart';
 import '../models/recording.dart';
+import '../models/recording_waveform.dart';
 
 /// Talks to the native `RecordingService` (Android) over platform channels.
 class RecorderService {
@@ -111,6 +112,20 @@ class RecorderService {
   Future<PlaybackState> getPlaybackState() async => PlaybackState.fromMap(
     await _methods.invokeMapMethod<String, dynamic>('getPlaybackState'),
   );
+
+  Future<RecordingWaveform> loadWaveform(Recording recording) async {
+    final map = await _methods.invokeMapMethod<String, dynamic>(
+      'getRecordingWaveform',
+      {'path': recording.file.path, 'sampleCount': 160},
+    );
+    if (map == null) {
+      throw PlatformException(
+        code: 'WAVEFORM_FAILED',
+        message: 'Could not read the recording waveform.',
+      );
+    }
+    return RecordingWaveform.fromMap(map);
+  }
 
   Future<void> setPlaybackEqualizer(List<double> gains) =>
       _methods.invokeMethod<void>('setPlaybackEqualizer', {'gains': gains});
