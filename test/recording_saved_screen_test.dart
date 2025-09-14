@@ -25,6 +25,14 @@ void main() {
 
     final sliders = find.byType(Slider);
     expect(sliders, findsNWidgets(3));
+    final presetChips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
+    expect(presetChips, hasLength(4));
+    for (final chip in presetChips) {
+      expect(chip.showCheckmark, isFalse);
+      final label = chip.label as Text;
+      expect(label.maxLines, 1);
+      expect(label.softWrap, isFalse);
+    }
     final heading = tester.widget<Text>(find.text('Shape your sound'));
     final screenTheme = Theme.of(tester.element(sliders.first));
     expect(screenTheme.brightness, Brightness.dark);

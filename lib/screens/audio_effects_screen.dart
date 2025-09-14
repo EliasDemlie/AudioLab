@@ -85,7 +85,8 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
             children: [
               for (final entry in _presets.entries)
                 ChoiceChip(
-                  label: Text(entry.key),
+                  showCheckmark: false,
+                  label: Text(entry.key, maxLines: 1, softWrap: false),
                   selected: selected == entry.key,
                   onSelected: _busy ? null : (_) => _apply(entry.value),
                 ),
