@@ -6,11 +6,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:voicerec/controllers/recorder_controller.dart';
 import 'package:voicerec/models/recording.dart';
 import 'package:voicerec/models/recording_waveform.dart';
+import 'package:voicerec/screens/audio_effects_screen.dart';
 import 'package:voicerec/screens/audio_editor_screen.dart';
 import 'package:voicerec/screens/recording_saved_screen.dart';
 import 'package:voicerec/services/recorder_service.dart';
 
 void main() {
+  testWidgets('effects controls use a light theme in dark mode', (
+    tester,
+  ) async {
+    final service = _PlaybackService();
+    final controller = RecorderController(service: service);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(useMaterial3: true),
+        home: AudioEffectsScreen(controller: controller),
+      ),
+    );
+
+    final sliders = find.byType(Slider);
+    expect(sliders, findsNWidgets(3));
+    final screenTheme = Theme.of(tester.element(sliders.first));
+    expect(screenTheme.brightness, Brightness.light);
+    expect(
+      screenTheme.colorScheme.surfaceContainerHigh.computeLuminance(),
+      greaterThan(0.5),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('player toggles playback without offering rename actions', (
     tester,
   ) async {

@@ -380,27 +380,8 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.content_cut_rounded,
-                          color: colors.primary,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'TRIM RECORDING',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colors.primary,
-                              letterSpacing: 1.7,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
+                  const SizedBox(height: 18),
+                     Text(
                       widget.recording.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -408,135 +389,89 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Drag the handles to keep the part you want.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-                      decoration: BoxDecoration(
-                        color: colors.onSurface.withValues(alpha: 0.035),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: colors.onSurface.withValues(alpha: 0.08),
+_loading
+    ? const SizedBox(
+        height: 220,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(strokeWidth: 2),
+              SizedBox(height: 16),
+              Text('Loading waveform…'),
+            ],
+          ),
+        ),
+      )
+    : _loadError != null
+        ? Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.multitrack_audio_rounded,
+                  size: 40,
+                  color: colors.onSurfaceVariant,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _loadError!,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _loadWaveform,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          )
+        : Column(
+            children: [
+              const SizedBox(height: 12),
+              AudioCropWaveform(
+                peaks: _waveform!.peaks,
+                selection: _selection,
+                position: position,
+                minimumSelection: _minimumSelection,
+                enabled: enabled,
+                onSelectionChanged: _changeSelection,
+                onSeek: (fraction) => _seek(_at(fraction)),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _time(Duration.zero),
+                          style: theme.textTheme.labelSmall,
                         ),
                       ),
-                      child: _loading
-                          ? const SizedBox(
-                              height: 220,
-                              child: Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(strokeWidth: 2),
-                                    SizedBox(height: 16),
-                                    Text('Loading waveform…'),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : _loadError != null
-                          ? Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.multitrack_audio_rounded,
-                                    size: 40,
-                                    color: colors.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _loadError!,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  OutlinedButton.icon(
-                                    onPressed: _loadWaveform,
-                                    icon: const Icon(Icons.refresh_rounded),
-                                    label: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'WAVEFORM',
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: colors.onSurfaceVariant,
-                                              letterSpacing: 1.4,
-                                            ),
-                                      ),
-                                      Icon(
-                                        Icons.graphic_eq_rounded,
-                                        color: colors.primary,
-                                        size: 18,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                AudioCropWaveform(
-                                  peaks: _waveform!.peaks,
-                                  selection: _selection,
-                                  position: position,
-                                  minimumSelection: _minimumSelection,
-                                  enabled: enabled,
-                                  onSelectionChanged: _changeSelection,
-                                  onSeek: (fraction) => _seek(_at(fraction)),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) => Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            _time(Duration.zero),
-                                            style: theme.textTheme.labelSmall,
-                                          ),
-                                        ),
-                                        if (constraints.maxWidth >= 320 &&
-                                            MediaQuery.textScalerOf(context)
-                                                    .scale(12) <=
-                                                16)
-                                          Expanded(
-                                            child: Text(
-                                              _time(_at(0.5)),
-                                              textAlign: TextAlign.center,
-                                              style: theme.textTheme.labelSmall,
-                                            ),
-                                          ),
-                                        Expanded(
-                                          child: Text(
-                                            _time(_duration),
-                                            textAlign: TextAlign.end,
-                                            style: theme.textTheme.labelSmall,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
+                      if (constraints.maxWidth >= 320 &&
+                          MediaQuery.textScalerOf(context).scale(12) <= 16)
+                        Expanded(
+                          child: Text(
+                            _time(_at(0.5)),
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall,
+                          ),
+                        ),
+                      Expanded(
+                        child: Text(
+                          _time(_duration),
+                          textAlign: TextAlign.end,
+                          style: theme.textTheme.labelSmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -546,7 +481,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                             value: _time(_start, precise: true),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _BoundaryTime(
                             label: 'END',
