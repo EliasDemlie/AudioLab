@@ -73,6 +73,8 @@ void main() {
 
     await _tapControl(tester, 'Play');
     expect(find.byTooltip('Pause'), findsOneWidget);
+    expect(find.byIcon(Icons.mic_rounded), findsNothing);
+    expect(find.byKey(const ValueKey('playback-waveform')), findsOneWidget);
     expect(service.calls, ['play']);
 
     await _tapControl(tester, 'Pause');
