@@ -10,6 +10,7 @@ import 'package:voicerec/screens/audio_effects_screen.dart';
 import 'package:voicerec/screens/audio_editor_screen.dart';
 import 'package:voicerec/screens/recording_saved_screen.dart';
 import 'package:voicerec/services/recorder_service.dart';
+import 'package:voicerec/widgets/circular_eq_dial.dart';
 
 void main() {
   testWidgets('effects controls match the dark app theme', (tester) async {
@@ -23,8 +24,8 @@ void main() {
       ),
     );
 
-    final sliders = find.byType(Slider);
-    expect(sliders, findsNWidgets(3));
+    final dials = find.byType(CircularEqDial);
+    expect(dials, findsNWidgets(3));
     final presetChips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
     expect(presetChips, hasLength(4));
     for (final chip in presetChips) {
@@ -37,13 +38,13 @@ void main() {
     final description = tester.widget<Text>(
       find.text('Adjust playback EQ for a clearer voice preview.'),
     );
-    final screenTheme = Theme.of(tester.element(sliders.first));
+    final screenTheme = Theme.of(tester.element(dials.first));
     expect(screenTheme.brightness, Brightness.dark);
     expect(
       screenTheme.colorScheme.surfaceContainerHigh.computeLuminance(),
       lessThan(0.5),
     );
-    tester.widget<Slider>(sliders.first).onChanged!(0.5);
+    tester.widget<CircularEqDial>(dials.first).onChanged(0.5);
     await tester.pump();
     expect(tester.widget<Text>(find.text('Shape your sound')), same(heading));
 
@@ -56,7 +57,7 @@ void main() {
       ),
       same(description),
     );
-    expect(service.equalizerUpdates, hasLength(1));
+    expect(service.equalizerUpdates, hasLength(2));
     expect(tester.takeException(), isNull);
   });
 
