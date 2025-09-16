@@ -34,7 +34,7 @@ class AudioCropWaveform extends StatefulWidget {
 }
 
 class _AudioCropWaveformState extends State<AudioCropWaveform> {
-  static const _inset = 22.0;
+  static const _inset = 12.0;
   RangeValues? _dragSelection;
   bool? _draggingStart;
   double _dragDistance = 0;
@@ -170,7 +170,6 @@ class _AudioCropWaveformState extends State<AudioCropWaveform> {
                           selection: widget.selection,
                           primary: colors.primary,
                           foreground: colors.onSurface,
-                          background: colors.surfaceContainerLow,
                           enabled: enabled,
                         ),
                       ),
@@ -217,7 +216,6 @@ class _CropWaveformPainter extends CustomPainter {
     required this.selection,
     required this.primary,
     required this.foreground,
-    required this.background,
     required this.enabled,
   });
 
@@ -225,32 +223,16 @@ class _CropWaveformPainter extends CustomPainter {
   final RangeValues selection;
   final Color primary;
   final Color foreground;
-  final Color background;
   final bool enabled;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const inset = 22.0;
+    const inset = 12.0;
     final width = math.max(1.0, size.width - inset * 2);
     final area = Rect.fromLTWH(inset, 12, width, size.height - 24);
     final startX = area.left + selection.start * area.width;
     final endX = area.left + selection.end * area.width;
-    final selected = Rect.fromLTRB(startX, area.top, endX, area.bottom);
-    final paint = Paint();
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(18)),
-      paint..color = background,
-    );
-    canvas.drawRect(selected, paint..color = primary.withValues(alpha: 0.075));
-    paint
-      ..color = foreground.withValues(alpha: 0.045)
-      ..strokeWidth = 1;
-    for (var i = 1; i < 4; i++) {
-      final y = area.top + area.height * i / 4;
-      canvas.drawLine(Offset(area.left, y), Offset(area.right, y), paint);
-    }
-
+    final paint = Paint()..strokeCap = StrokeCap.round;
     paint.strokeCap = StrokeCap.round;
     for (final bar in geometry.bars) {
       final x = bar.x;
@@ -271,38 +253,10 @@ class _CropWaveformPainter extends CustomPainter {
     if (geometry.bars.isEmpty) return;
     paint
       ..strokeCap = StrokeCap.butt
-      ..strokeWidth = 1.5
-      ..color = primary.withValues(alpha: enabled ? 0.8 : 0.3);
-    canvas.drawLine(selected.topLeft, selected.topRight, paint);
-    canvas.drawLine(selected.bottomLeft, selected.bottomRight, paint);
+      ..strokeWidth = 2
+      ..color = primary.withValues(alpha: enabled ? 0.95 : 0.35);
     for (final x in [startX, endX]) {
       canvas.drawLine(Offset(x, area.top), Offset(x, area.bottom), paint);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset(x, area.center.dy),
-            width: 18,
-            height: 48,
-          ),
-          const Radius.circular(6),
-        ),
-        paint..color = primary.withValues(alpha: enabled ? 1 : 0.4),
-      );
-      paint
-        ..color = background
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.round;
-      for (final dx in [-2.0, 2.0]) {
-        canvas.drawLine(
-          Offset(x + dx, area.center.dy - 7),
-          Offset(x + dx, area.center.dy + 7),
-          paint,
-        );
-      }
-      paint
-        ..strokeCap = StrokeCap.butt
-        ..strokeWidth = 1.5
-        ..color = primary.withValues(alpha: enabled ? 0.8 : 0.3);
     }
   }
 
@@ -312,14 +266,13 @@ class _CropWaveformPainter extends CustomPainter {
       oldDelegate.selection != selection ||
       oldDelegate.primary != primary ||
       oldDelegate.foreground != foreground ||
-      oldDelegate.background != background ||
       oldDelegate.enabled != enabled;
 }
 
 /// The sampled bars depend on the audio and viewport, not the crop or playhead.
 class _WaveformGeometry {
   _WaveformGeometry(List<double> peaks, this.size) {
-    final width = math.max(1.0, size.width - 44);
+    final width = math.max(1.0, size.width - 24);
     final count = math.min(peaks.length, math.max(1, (width / 4).floor()));
     final step = width / math.max(1, count);
     strokeWidth = math.min(3.0, step * 0.58);
@@ -331,7 +284,7 @@ class _WaveformGeometry {
         if (peaks[j].isFinite) peak = math.max(peak, peaks[j].clamp(0.0, 1.0));
       }
       return _WaveformBar(
-        x: 22 + (i + 0.5) * step,
+        x: 12 + (i + 0.5) * step,
         height: math.max(2.0, math.pow(peak, 0.65) * (size.height - 62)),
       );
     }, growable: false);
@@ -367,7 +320,7 @@ class _PlaybackCursorPainter extends CustomPainter {
     if (!visible) return;
     final current = positionListenable?.value ?? position;
     final fraction = current.isFinite ? current.clamp(0.0, 1.0) : 0.0;
-    final cursor = 22 + fraction * math.max(1.0, size.width - 44);
+    final cursor = 12 + fraction * math.max(1.0, size.width - 24);
     final paint = Paint()
       ..color = color.withValues(alpha: 0.95)
       ..strokeWidth = 2;
