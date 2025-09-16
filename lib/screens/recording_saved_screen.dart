@@ -7,9 +7,10 @@ import 'package:flutter/services.dart';
 
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
+import '../utils/audio_effect_presets.dart';
 import '../utils/formatters.dart';
-import '../widgets/audio_crop_waveform.dart';
 import '../widgets/circular_eq_dial.dart';
+import 'audio_editor_screen.dart';
 
 class RecordingSavedScreen extends StatefulWidget {
   const RecordingSavedScreen({
@@ -32,11 +33,6 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
   );
   final ValueNotifier<bool> _playbackBusy = ValueNotifier(false);
   final ValueNotifier<List<double>> _waveformPeaks = ValueNotifier(const []);
-  final ValueNotifier<bool> _editMode = ValueNotifier(false);
-  final ValueNotifier<bool> _effectsOpen = ValueNotifier(false);
-  final ValueNotifier<RangeValues> _cropSelection = ValueNotifier(
-    const RangeValues(0, 1),
-  );
   final ValueNotifier<List<double>> _equalizerGains = ValueNotifier(const [
     0.0,
     0.0,
@@ -45,15 +41,14 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
   final ValueNotifier<bool> _equalizerBusy = ValueNotifier(false);
   Timer? _playbackTicker;
   bool _hasStartedPlayback = false;
+  bool _editing = false;
   int _playbackRevision = 0;
   int _waveformRevision = 0;
-  Duration? _waveformDuration;
 
   PlaybackState get _playback => _playbackState.value;
-  bool get _editing => _editMode.value;
   Duration get _duration => _playback.duration > Duration.zero
       ? _playback.duration
-      : _recording.duration ?? _waveformDuration ?? Duration.zero;
+      : _recording.duration ?? Duration.zero;
 
   @override
   void initState() {
@@ -66,7 +61,6 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
     try {
       final waveform = await widget.controller.loadWaveform(recording);
       if (mounted && revision == _waveformRevision) {
-        _waveformDuration = waveform.duration;
         _waveformPeaks.value = waveform.peaks;
       }
     } catch (_) {
@@ -83,9 +77,6 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
     _playbackState.dispose();
     _playbackBusy.dispose();
     _waveformPeaks.dispose();
-    _editMode.dispose();
-    _effectsOpen.dispose();
-    _cropSelection.dispose();
     _equalizerGains.dispose();
     _equalizerBusy.dispose();
     super.dispose();
@@ -171,18 +162,10 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
     }
   }
 
-  Future<void> _toggleEditMode() async {
-    if (_playbackBusy.value) return;
-    if (_editing) {
-      _editMode.value = false;
-      _cropSelection.value = const RangeValues(0, 1);
-      return;
-    }
-    if (_waveformPeaks.value.isEmpty) {
-      _showMessage('The waveform is not ready yet.');
-      return;
-    }
-    _playbackBusy.value = true;
+  Future<void> _editAudio() async {
+    if (_playbackBusy.value || _editing) return;
+    final duration = _duration;
+    setState(() => _editing = true);
     _playbackTicker?.cancel();
     _playbackTicker = null;
     _playbackRevision++;
@@ -190,54 +173,28 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
       await widget.controller.stopPlayback();
       if (!mounted) return;
       _hasStartedPlayback = false;
-      _playbackState.value = PlaybackState(duration: _duration);
-      _cropSelection.value = const RangeValues(0, 1);
-      _editMode.value = true;
-    } on PlatformException catch (error) {
-      _showMessage(error.message ?? 'Could not prepare audio editing.');
-    } finally {
-      if (mounted) _playbackBusy.value = false;
-    }
-  }
-
-  Future<void> _saveInlineEdit() async {
-    if (!_editing || _playbackBusy.value) return;
-    final selection = _cropSelection.value;
-    final start = Duration(
-      milliseconds: (_duration.inMilliseconds * selection.start).round(),
-    );
-    final end = Duration(
-      milliseconds: (_duration.inMilliseconds * selection.end).round(),
-    );
-    if (end - start < const Duration(milliseconds: 1000)) return;
-
-    _playbackBusy.value = true;
-    _playbackRevision++;
-    _playbackTicker?.cancel();
-    _playbackTicker = null;
-    try {
+      _playbackState.value = const PlaybackState();
+      final route = MaterialPageRoute<Recording>(
+        builder: (_) => AudioEditorScreen(
+          recording: _recording,
+          controller: widget.controller,
+          duration: duration > Duration.zero ? duration : null,
+        ),
+      );
+      final edited = await Navigator.of(context).push(route);
+      await route.completed;
       await widget.controller.stopPlayback();
-      _hasStartedPlayback = false;
-      final edited = await widget.controller.trimAudio(
-        _recording,
-        start: start,
-        end: end,
-      );
       if (!mounted) return;
-      setState(() => _recording = edited);
-      _editMode.value = false;
-      _cropSelection.value = const RangeValues(0, 1);
-      _waveformDuration = edited.duration;
-      _waveformPeaks.value = const [];
-      _playbackState.value = PlaybackState(
-        duration: edited.duration ?? end - start,
-      );
-      unawaited(_loadWaveform(edited));
-      _showMessage('Edited audio saved as a new recording.');
+      if (edited != null) {
+        setState(() => _recording = edited);
+        _waveformPeaks.value = const [];
+        unawaited(_loadWaveform(edited));
+        _showMessage('Edited audio saved as a new recording.');
+      }
     } on PlatformException catch (error) {
-      _showMessage(error.message ?? 'Could not save the edited copy.');
+      _showMessage(error.message ?? 'Could not open the audio editor.');
     } finally {
-      if (mounted) _playbackBusy.value = false;
+      if (mounted) setState(() => _editing = false);
     }
   }
 
@@ -252,131 +209,6 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
     } finally {
       if (mounted) _equalizerBusy.value = false;
     }
-  }
-
-  Widget _buildWaveform(BuildContext context) => ValueListenableBuilder<bool>(
-    valueListenable: _editMode,
-    builder: (context, isEditing, _) => isEditing
-        ? ValueListenableBuilder<RangeValues>(
-            valueListenable: _cropSelection,
-            builder: (context, selection, _) => ValueListenableBuilder<bool>(
-              valueListenable: _playbackBusy,
-              builder: (context, isBusy, _) => AudioCropWaveform(
-                peaks: _waveformPeaks.value,
-                selection: selection,
-                position: 0,
-                minimumSelection: _duration.inMilliseconds > 0
-                    ? (1000 / _duration.inMilliseconds).clamp(0.0, 1.0)
-                    : 1,
-                enabled: !isBusy,
-                onSelectionChanged: (value) => _cropSelection.value = value,
-                onSeek: (_) {},
-              ),
-            ),
-          )
-        : ValueListenableBuilder<PlaybackState>(
-            valueListenable: _playbackState,
-            builder: (context, playback, _) => ValueListenableBuilder(
-              valueListenable: _waveformPeaks,
-              builder: (context, peaks, _) {
-                final durationMillis = _duration.inMilliseconds;
-                final progress = durationMillis > 0
-                    ? (playback.position.inMilliseconds / durationMillis).clamp(
-                        0.0,
-                        1.0,
-                      )
-                    : 0.0;
-                return SizedBox(
-                  width: double.infinity,
-                  height: 124,
-                  child: _PlaybackWaveform(
-                    peaks: peaks,
-                    progress: progress,
-                    isPlaying: playback.isPlaying,
-                  ),
-                );
-              },
-            ),
-          ),
-  );
-
-  Widget _buildInlinePlaybackActions() => ValueListenableBuilder<bool>(
-    valueListenable: _editMode,
-    builder: (context, isEditing, _) => isEditing
-        ? ValueListenableBuilder<RangeValues>(
-            valueListenable: _cropSelection,
-            builder: (context, selection, _) => ValueListenableBuilder<bool>(
-              valueListenable: _playbackBusy,
-              builder: (context, isBusy, _) {
-                final start = Duration(
-                  milliseconds: (_duration.inMilliseconds * selection.start)
-                      .round(),
-                );
-                final end = Duration(
-                  milliseconds: (_duration.inMilliseconds * selection.end)
-                      .round(),
-                );
-                return Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Text('START  ${_formatTime(start)}')),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'END  ${_formatTime(end)}',
-                            textAlign: TextAlign.end,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: isBusy ? null : _toggleEditMode,
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: isBusy ? null : _saveInlineEdit,
-                          child: Text(isBusy ? 'Saving…' : 'Save copy'),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-          )
-        : _PlaybackControls(
-            state: _playbackState,
-            busy: _playbackBusy,
-            duration: _recording.duration ?? _waveformDuration,
-            isEditing: false,
-            onToggle: _togglePlayback,
-            onSeek: _seek,
-          ),
-  );
-
-  Widget _buildInlineEffects() => ValueListenableBuilder<bool>(
-    valueListenable: _effectsOpen,
-    builder: (context, isOpen, _) => AnimatedSize(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeInOutCubic,
-      alignment: Alignment.topCenter,
-      child: isOpen
-          ? _InlineEffectsPanel(
-              gains: _equalizerGains,
-              busy: _equalizerBusy,
-              onChanged: _applyEqualizer,
-            )
-          : const SizedBox.shrink(),
-    ),
-  );
-
-  String _formatTime(Duration duration) {
-    final formatted = formatDuration(duration);
-    return duration.inHours > 0 ? formatted : formatted.substring(3);
   }
 
   void _showMessage(String message) {
@@ -430,7 +262,28 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
               children: [
-                _buildWaveform(context),
+                ValueListenableBuilder<PlaybackState>(
+                  valueListenable: _playbackState,
+                  builder: (context, playback, _) => ValueListenableBuilder(
+                    valueListenable: _waveformPeaks,
+                    builder: (context, peaks, _) {
+                      final durationMillis = _duration.inMilliseconds;
+                      final progress = durationMillis > 0
+                          ? (playback.position.inMilliseconds / durationMillis)
+                                .clamp(0.0, 1.0)
+                          : 0.0;
+                      return SizedBox(
+                        width: double.infinity,
+                        height: 124,
+                        child: _PlaybackWaveform(
+                          peaks: peaks,
+                          progress: progress,
+                          isPlaying: playback.isPlaying,
+                        ),
+                      );
+                    },
+                  ),
+                ),
                 const SizedBox(height: 14),
                 Text(
                   _recording.title,
@@ -441,68 +294,22 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                _buildInlinePlaybackActions(),
-                const SizedBox(height: 28),
-                ValueListenableBuilder<bool>(
-                  valueListenable: _playbackBusy,
-                  builder: (context, isBusy, _) => DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colors.onSurface.withValues(alpha: 0.035),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: colors.onSurface.withValues(alpha: 0.07),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: ValueListenableBuilder<bool>(
-                              valueListenable: _editMode,
-                              builder: (context, isEditing, _) => _PlayerAction(
-                                label: isEditing ? 'Cancel edit' : 'Edit audio',
-                                icon: isEditing
-                                    ? Icons.close_rounded
-                                    : Icons.content_cut_rounded,
-                                onPressed: isBusy ? null : _toggleEditMode,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: ValueListenableBuilder<bool>(
-                              valueListenable: _effectsOpen,
-                              builder: (context, effectsOpen, _) =>
-                                  _PlayerAction(
-                                    label: effectsOpen
-                                        ? 'Hide effects'
-                                        : 'Effects',
-                                    icon: Icons.tune_rounded,
-                                    onPressed: isBusy
-                                        ? null
-                                        : () =>
-                                              _effectsOpen.value = !effectsOpen,
-                                  ),
-                            ),
-                          ),
-                          Expanded(
-                            child: _PlayerAction(
-                              label: 'Share',
-                              icon: Icons.ios_share_rounded,
-                              onPressed: _editing
-                                  ? null
-                                  : () => widget.controller.share(_recording),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _PlaybackControls(
+                  state: _playbackState,
+                  busy: _playbackBusy,
+                  duration: _recording.duration,
+                  isEditing: _editing,
+                  onEdit: _editAudio,
+                  onShare: () => widget.controller.share(_recording),
+                  onToggle: _togglePlayback,
+                  onSeek: _seek,
                 ),
-                _buildInlineEffects(),
+                const SizedBox(height: 12),
+                _AlwaysVisibleEffects(
+                  gains: _equalizerGains,
+                  busy: _equalizerBusy,
+                  onChanged: _applyEqualizer,
+                ),
               ],
             ),
           ),
@@ -518,6 +325,8 @@ class _PlaybackControls extends StatefulWidget {
     required this.busy,
     required this.duration,
     required this.isEditing,
+    required this.onEdit,
+    required this.onShare,
     required this.onToggle,
     required this.onSeek,
   });
@@ -526,6 +335,8 @@ class _PlaybackControls extends StatefulWidget {
   final ValueNotifier<bool> busy;
   final Duration? duration;
   final bool isEditing;
+  final VoidCallback onEdit;
+  final VoidCallback onShare;
   final VoidCallback onToggle;
   final ValueChanged<Duration> onSeek;
 
@@ -630,8 +441,28 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
             ),
             const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                SizedBox(
+                  width: 52,
+                  child: TextButton(
+                    onPressed: isBusy || widget.isEditing
+                        ? null
+                        : widget.onEdit,
+                    style: TextButton.styleFrom(
+                      minimumSize: Size.zero,
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text(
+                      'Edit',
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.clip,
+                    ),
+                  ),
+                ),
                 _SkipButton(
                   tooltip: 'Back 10 seconds',
                   icon: Icons.replay_10_rounded,
@@ -641,7 +472,7 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                         )
                       : null,
                 ),
-                const SizedBox(width: 18),
+                const SizedBox(width: 4),
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.all(6),
@@ -673,7 +504,7 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                       ),
                     ),
                     child: SizedBox.square(
-                      dimension: 68,
+                      dimension: 56,
                       child: IconButton(
                         tooltip: playback.isPlaying ? 'Pause' : 'Play',
                         onPressed: isBusy || widget.isEditing
@@ -699,14 +530,14 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                                       ? Icons.pause_rounded
                                       : Icons.play_arrow_rounded,
                                   key: ValueKey(playback.isPlaying),
-                                  size: 38,
+                                  size: 32,
                                 ),
                               ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 18),
+                const SizedBox(width: 4),
                 _SkipButton(
                   tooltip: 'Forward 10 seconds',
                   icon: Icons.forward_10_rounded,
@@ -715,6 +546,17 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                           position + const Duration(seconds: 10),
                         )
                       : null,
+                ),
+                IconButton(
+                  tooltip: 'Share recording',
+                  onPressed: isBusy || widget.isEditing ? null : widget.onShare,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 36,
+                    height: 36,
+                  ),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.ios_share_rounded, size: 18),
                 ),
               ],
             ),
@@ -740,11 +582,11 @@ class _SkipButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return SizedBox.square(
-      dimension: 44,
+      dimension: 38,
       child: IconButton.filledTonal(
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon, size: 22),
+        icon: Icon(icon, size: 19),
         style: IconButton.styleFrom(
           backgroundColor: colors.onSurface.withValues(alpha: 0.05),
           foregroundColor: colors.onSurface,
@@ -756,38 +598,8 @@ class _SkipButton extends StatelessWidget {
   }
 }
 
-class _PlayerAction extends StatelessWidget {
-  const _PlayerAction({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => TextButton(
-    onPressed: onPressed,
-    style: TextButton.styleFrom(
-      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 22),
-        const SizedBox(height: 6),
-        Text(label, textAlign: TextAlign.center),
-      ],
-    ),
-  );
-}
-
-class _InlineEffectsPanel extends StatelessWidget {
-  const _InlineEffectsPanel({
+class _AlwaysVisibleEffects extends StatelessWidget {
+  const _AlwaysVisibleEffects({
     required this.gains,
     required this.busy,
     required this.onChanged,
@@ -798,9 +610,9 @@ class _InlineEffectsPanel extends StatelessWidget {
   final ValueChanged<List<double>> onChanged;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 12, bottom: 8),
-    child: Column(
+  Widget build(BuildContext context) => ValueListenableBuilder<List<double>>(
+    valueListenable: gains,
+    builder: (context, values, _) => Column(
       children: [
         Row(
           children: [
@@ -823,36 +635,47 @@ class _InlineEffectsPanel extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        ValueListenableBuilder<List<double>>(
-          valueListenable: gains,
-          builder: (context, values, _) => Row(
+        ValueListenableBuilder<bool>(
+          valueListenable: busy,
+          builder: (context, isBusy, _) => Wrap(
+            spacing: 8,
+            runSpacing: 4,
             children: [
-              Expanded(
-                child: CircularEqDial(
-                  label: 'Bass',
-                  value: values[0],
-                  onChanged: (value) =>
-                      onChanged([value, values[1], values[2]]),
+              for (final preset in audioEffectPresets.entries)
+                ChoiceChip(
+                  showCheckmark: false,
+                  label: Text(preset.key, maxLines: 1, softWrap: false),
+                  selected: audioEffectPresetFor(values) == preset.key,
+                  onSelected: isBusy ? null : (_) => onChanged(preset.value),
                 ),
-              ),
-              Expanded(
-                child: CircularEqDial(
-                  label: 'Presence',
-                  value: values[1],
-                  onChanged: (value) =>
-                      onChanged([values[0], value, values[2]]),
-                ),
-              ),
-              Expanded(
-                child: CircularEqDial(
-                  label: 'Treble',
-                  value: values[2],
-                  onChanged: (value) =>
-                      onChanged([values[0], values[1], value]),
-                ),
-              ),
             ],
           ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: CircularEqDial(
+                label: 'Bass',
+                value: values[0],
+                onChanged: (value) => onChanged([value, values[1], values[2]]),
+              ),
+            ),
+            Expanded(
+              child: CircularEqDial(
+                label: 'Presence',
+                value: values[1],
+                onChanged: (value) => onChanged([values[0], value, values[2]]),
+              ),
+            ),
+            Expanded(
+              child: CircularEqDial(
+                label: 'Treble',
+                value: values[2],
+                onChanged: (value) => onChanged([values[0], values[1], value]),
+              ),
+            ),
+          ],
         ),
       ],
     ),
