@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,6 +10,7 @@ import '../models/recording.dart';
 import '../models/recording_waveform.dart';
 import '../utils/formatters.dart';
 import '../widgets/audio_crop_waveform.dart';
+import '../widgets/circular_eq_dial.dart';
 
 class AudioEditorScreen extends StatefulWidget {
   const AudioEditorScreen({
@@ -28,9 +30,17 @@ class AudioEditorScreen extends StatefulWidget {
 
 class _AudioEditorScreenState extends State<AudioEditorScreen> {
   RecordingWaveform? _waveform;
-  RangeValues _selection = const RangeValues(0, 1);
+  final ValueNotifier<RangeValues> _selection = ValueNotifier(
+    const RangeValues(0, 1),
+  );
   Duration _position = Duration.zero;
   final ValueNotifier<double> _positionProgress = ValueNotifier(0);
+  final ValueNotifier<List<double>> _equalizerGains = ValueNotifier(const [
+    0.0,
+    0.0,
+    0.0,
+  ]);
+  final ValueNotifier<bool> _effectsBusy = ValueNotifier(false);
   Timer? _ticker;
   String? _loadError;
   bool _loading = true;
@@ -39,6 +49,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   bool _playing = false;
   bool _prepared = false;
   bool _reading = false;
+  bool _showEffects = false;
   int _revision = 0;
 
   Duration get _duration =>
@@ -54,8 +65,8 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
       : 1;
   Duration _at(double fraction) =>
       Duration(milliseconds: (_duration.inMilliseconds * fraction).round());
-  Duration get _start => _at(_selection.start);
-  Duration get _end => _at(_selection.end);
+  Duration get _start => _at(_selection.value.start);
+  Duration get _end => _at(_selection.value.end);
   Duration _bounded(Duration position) => Duration(
     milliseconds: position.inMilliseconds.clamp(
       _start.inMilliseconds,
@@ -81,7 +92,10 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   void dispose() {
     _revision++;
     _ticker?.cancel();
+    _selection.dispose();
     _positionProgress.dispose();
+    _equalizerGains.dispose();
+    _effectsBusy.dispose();
     unawaited(widget.controller.stopPlayback());
     super.dispose();
   }
@@ -99,7 +113,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
       }
       setState(() {
         _waveform = waveform;
-        _selection = const RangeValues(0, 1);
+        _selection.value = const RangeValues(0, 1);
         _setPosition(Duration.zero);
       });
     } catch (error) {
@@ -237,19 +251,19 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   }
 
   Future<void> _changeSelection(RangeValues selection) async {
-    if (!_ready || _busy || _saving) return;
+    if (!_ready || _saving) return;
     final start = selection.start.clamp(0.0, 1.0 - _minimumSelection);
     final end = selection.end.clamp(start + _minimumSelection, 1.0);
     final wasPlaying = _playing;
     _revision++;
     _cancelTicker();
-    setState(() {
-      _selection = RangeValues(start, end);
-      _setPosition(_bounded(_position));
-      _playing = false;
-      _busy = wasPlaying;
-    });
+    _selection.value = RangeValues(start, end);
+    _setPosition(_bounded(_position));
     if (!wasPlaying) return;
+    setState(() {
+      _playing = false;
+      _busy = true;
+    });
     try {
       await widget.controller.pausePlayback();
     } catch (error) {
@@ -288,6 +302,19 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
       );
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _applyEqualizer(List<double> gains) async {
+    final appliedGains = List<double>.unmodifiable(gains);
+    _equalizerGains.value = appliedGains;
+    _effectsBusy.value = true;
+    try {
+      await widget.controller.setPlaybackEqualizer(appliedGains);
+    } on PlatformException catch (error) {
+      _showError(error, 'Audio effects are unavailable.');
+    } finally {
+      if (mounted) _effectsBusy.value = false;
     }
   }
 
@@ -334,6 +361,19 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
           ),
           title: const Text('Edit audio'),
           centerTitle: true,
+          actions: [
+            IconButton(
+              tooltip: _showEffects ? 'Hide effects' : 'Show effects',
+              onPressed: _saving || _busy
+                  ? null
+                  : () => setState(() => _showEffects = !_showEffects),
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.tune_rounded, size: 20),
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
         bottomNavigationBar: SafeArea(
           top: false,
@@ -387,14 +427,6 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 18),
-                    Text(
-                      widget.recording.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        letterSpacing: -0.5,
-                      ),
-                    ),
                     _loading
                         ? const SizedBox(
                             height: 220,
@@ -433,15 +465,20 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                         : Column(
                             children: [
                               const SizedBox(height: 12),
-                              AudioCropWaveform(
-                                peaks: _waveform!.peaks,
-                                selection: _selection,
-                                position: _positionProgress.value,
-                                positionListenable: _positionProgress,
-                                minimumSelection: _minimumSelection,
-                                enabled: enabled,
-                                onSelectionChanged: _changeSelection,
-                                onSeek: (fraction) => _seek(_at(fraction)),
+                              ValueListenableBuilder<RangeValues>(
+                                valueListenable: _selection,
+                                builder: (context, selection, _) =>
+                                    AudioCropWaveform(
+                                      peaks: _waveform!.peaks,
+                                      selection: selection,
+                                      position: _positionProgress.value,
+                                      positionListenable: _positionProgress,
+                                      minimumSelection: _minimumSelection,
+                                      enabled: _ready && !_saving,
+                                      onSelectionChanged: _changeSelection,
+                                      onSeek: (fraction) =>
+                                          _seek(_at(fraction)),
+                                    ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -480,45 +517,84 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                               ),
                             ],
                           ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _BoundaryTime(
-                            label: 'START',
-                            value: _time(_start, precise: true),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _BoundaryTime(
-                            label: 'END',
-                            value: _time(_end, precise: true),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 14),
+                    Text(
+                      widget.recording.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: [
-                        Text(
-                          'Selected ${_time(_end - _start, precise: true)}',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: colors.primary,
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeInOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _showEffects
+                          ? _InlineEffectsPanel(
+                              gains: _equalizerGains,
+                              busy: _effectsBusy,
+                              onChanged: _applyEqualizer,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 16),
+                    ValueListenableBuilder<RangeValues>(
+                      valueListenable: _selection,
+                      builder: (context, selection, _) => Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _BoundaryTime(
+                                  label: 'START',
+                                  value: _time(
+                                    _at(selection.start),
+                                    precise: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _BoundaryTime(
+                                  label: 'END',
+                                  value: _time(
+                                    _at(selection.end),
+                                    precise: true,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        TextButton.icon(
-                          onPressed: enabled
-                              ? () => _changeSelection(const RangeValues(0, 1))
-                              : null,
-                          icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                          label: const Text('Reset selection'),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                'Selected ${_time(_at(selection.end - selection.start), precise: true)}',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: colors.primary,
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: enabled
+                                    ? () => _changeSelection(
+                                        const RangeValues(0, 1),
+                                      )
+                                    : null,
+                                icon: const Icon(
+                                  Icons.restart_alt_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('Reset selection'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -646,4 +722,77 @@ class _BoundaryTime extends StatelessWidget {
       ),
     );
   }
+}
+
+class _InlineEffectsPanel extends StatelessWidget {
+  const _InlineEffectsPanel({
+    required this.gains,
+    required this.busy,
+    required this.onChanged,
+  });
+
+  final ValueListenable<List<double>> gains;
+  final ValueListenable<bool> busy;
+  final ValueChanged<List<double>> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Text(
+              'EQUALIZER',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            ValueListenableBuilder<bool>(
+              valueListenable: busy,
+              builder: (context, isBusy, _) => isBusy
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ValueListenableBuilder<List<double>>(
+          valueListenable: gains,
+          builder: (context, values, _) => Row(
+            children: [
+              Expanded(
+                child: CircularEqDial(
+                  label: 'Bass',
+                  value: values[0],
+                  onChanged: (value) =>
+                      onChanged([value, values[1], values[2]]),
+                ),
+              ),
+              Expanded(
+                child: CircularEqDial(
+                  label: 'Presence',
+                  value: values[1],
+                  onChanged: (value) =>
+                      onChanged([values[0], value, values[2]]),
+                ),
+              ),
+              Expanded(
+                child: CircularEqDial(
+                  label: 'Treble',
+                  value: values[2],
+                  onChanged: (value) =>
+                      onChanged([values[0], values[1], value]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
