@@ -356,7 +356,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
     final canPreview = _duration > Duration.zero && !_busy && !_saving;
     final canSave =
         _duration > Duration.zero &&
-      !_busy &&
+        !_busy &&
         !_saving &&
         (_loading || _waveform != null);
     return PopScope(
