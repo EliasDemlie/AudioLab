@@ -155,7 +155,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   }
 
   Future<void> _togglePlayback() async {
-    if (!_ready || _busy || _saving) return;
+    if (_duration <= Duration.zero || _busy || _saving) return;
     setState(() => _busy = true);
     _revision++;
     try {
@@ -229,7 +229,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   }
 
   Future<void> _seek(Duration position) async {
-    if (!_ready || _busy || _saving) return;
+    if (_duration <= Duration.zero || _busy || _saving) return;
     final target = _bounded(position);
     _revision++;
     setState(() => _setPosition(target));
@@ -275,7 +275,12 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   }
 
   Future<void> _save() async {
-    if (!_ready || _busy || _saving) return;
+    if (_duration <= Duration.zero ||
+        _busy ||
+        _saving ||
+        (!_loading && _waveform == null)) {
+      return;
+    }
     final start = _start;
     final end = _end;
     if ((end - start).inMilliseconds < _minimumMillis) return;
@@ -348,6 +353,12 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final enabled = _ready && !_busy && !_saving;
+    final canPreview = _duration > Duration.zero && !_busy && !_saving;
+    final canSave =
+        _duration > Duration.zero &&
+      !_busy &&
+        !_saving &&
+        (_loading || _waveform != null);
     return PopScope(
       canPop: !_saving && !_busy,
       child: Scaffold(
@@ -362,59 +373,17 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
           title: const Text('Edit audio'),
           centerTitle: true,
           actions: [
-            IconButton(
-              tooltip: _showEffects ? 'Hide effects' : 'Show effects',
-              onPressed: _saving || _busy
-                  ? null
-                  : () => setState(() => _showEffects = !_showEffects),
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-              padding: EdgeInsets.zero,
-              icon: const Icon(Icons.tune_rounded, size: 20),
+            TextButton(
+              onPressed: canSave ? _save : null,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(48, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(_saving ? 'Saving…' : 'Save copy'),
             ),
             const SizedBox(width: 8),
           ],
-        ),
-        bottomNavigationBar: SafeArea(
-          top: false,
-          child: Center(
-            heightFactor: 1,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: enabled ? _save : null,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(54),
-                      ),
-                      icon: _saving
-                          ? SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colors.onPrimary,
-                              ),
-                            )
-                          : const Icon(Icons.check_rounded),
-                      label: Text(_saving ? 'Saving copy…' : 'Save copy'),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Your original recording stays unchanged.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ),
         body: SafeArea(
           top: false,
@@ -422,14 +391,14 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 8),
                     _loading
                         ? const SizedBox(
-                            height: 220,
+                            height: 132,
                             child: Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -526,19 +495,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeInOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _showEffects
-                          ? _InlineEffectsPanel(
-                              gains: _equalizerGains,
-                              busy: _effectsBusy,
-                              onChanged: _applyEqualizer,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     ValueListenableBuilder<RangeValues>(
                       valueListenable: _selection,
                       builder: (context, selection, _) => Column(
@@ -596,35 +553,36 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         IconButton.filledTonal(
                           tooltip: 'Back 5 seconds',
-                          onPressed: enabled
+                          onPressed: canPreview
                               ? () => _seek(
                                   _position - const Duration(seconds: 5),
                                 )
                               : null,
-                          icon: const Icon(Icons.replay_5_rounded, size: 28),
+                          icon: const Icon(Icons.replay_5_rounded, size: 21),
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(52, 52),
+                            minimumSize: const Size(40, 40),
+                            padding: EdgeInsets.zero,
                             shape: const CircleBorder(),
                           ),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 14),
                         SizedBox.square(
-                          dimension: 80,
+                          dimension: 62,
                           child: IconButton.filled(
                             tooltip: _playing ? 'Pause' : 'Play selection',
-                            onPressed: enabled ? _togglePlayback : null,
+                            onPressed: canPreview ? _togglePlayback : null,
                             style: IconButton.styleFrom(
                               shape: const CircleBorder(),
                             ),
                             icon: _busy
                                 ? const SizedBox.square(
-                                    dimension: 26,
+                                    dimension: 22,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                     ),
@@ -633,27 +591,63 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                                     _playing
                                         ? Icons.pause_rounded
                                         : Icons.play_arrow_rounded,
-                                    size: 42,
+                                    size: 34,
                                   ),
                           ),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 14),
                         IconButton.filledTonal(
                           tooltip: 'Forward 5 seconds',
-                          onPressed: enabled
+                          onPressed: canPreview
                               ? () => _seek(
                                   _position + const Duration(seconds: 5),
                                 )
                               : null,
-                          icon: const Icon(Icons.forward_5_rounded, size: 28),
+                          icon: const Icon(Icons.forward_5_rounded, size: 21),
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(52, 52),
+                            minimumSize: const Size(40, 40),
+                            padding: EdgeInsets.zero,
                             shape: const CircleBorder(),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 2),
+                    Align(
+                      alignment: Alignment.center,
+                      child: Tooltip(
+                        message: _showEffects ? 'Hide effects' : 'Show effects',
+                        child: TextButton.icon(
+                          onPressed: _saving
+                              ? null
+                              : () => setState(
+                                  () => _showEffects = !_showEffects,
+                                ),
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                          ),
+                          icon: const Icon(Icons.tune_rounded, size: 17),
+                          label: const Text('Effects'),
+                        ),
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _showEffects
+                          ? _InlineEffectsPanel(
+                              gains: _equalizerGains,
+                              busy: _effectsBusy,
+                              onChanged: _applyEqualizer,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 6),
                     ValueListenableBuilder<double>(
                       valueListenable: _positionProgress,
                       builder: (context, progress, _) => Text(
@@ -663,14 +657,6 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                           color: colors.onSurfaceVariant,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Preview selected section',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -694,32 +680,24 @@ class _BoundaryTime extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.onSurface.withValues(alpha: 0.035),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.onSurface.withValues(alpha: 0.07)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colors.onSurfaceVariant,
-              letterSpacing: 1.4,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colors.onSurfaceVariant,
+            letterSpacing: 1.2,
           ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

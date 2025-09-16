@@ -69,7 +69,7 @@ class _AudioCropWaveformState extends State<AudioCropWaveform> {
     final colors = Theme.of(context).colorScheme;
     final enabled = widget.enabled && widget.peaks.isNotEmpty;
     return SizedBox(
-      height: 176,
+      height: 112,
       width: double.infinity,
       child: LayoutBuilder(
         builder: (context, constraints) {

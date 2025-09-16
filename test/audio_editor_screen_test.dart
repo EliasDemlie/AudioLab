@@ -59,10 +59,7 @@ void main() {
     );
     expect(waveform.peaks, service.peaks);
     expect(waveform.selection, const RangeValues(0, 1));
-    expect(
-      find.text('Your original recording stays unchanged.'),
-      findsOneWidget,
-    );
+    expect(find.text('Your original recording stays unchanged.'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -75,8 +72,8 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsWidgets);
     expect(service.calls, isEmpty);
-    final save = find.widgetWithText(FilledButton, 'Save copy');
-    expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+    final save = find.widgetWithText(TextButton, 'Save copy');
+    expect(tester.widget<TextButton>(save).onPressed, isNotNull);
     final play = find.byTooltip('Play selection');
     await tester.ensureVisible(play);
     await tester.tap(play);
@@ -91,7 +88,7 @@ void main() {
 
     expect(find.byType(AudioCropWaveform), findsOneWidget);
     expect(find.byTooltip('Pause'), findsOneWidget);
-    expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+    expect(tester.widget<TextButton>(save).onPressed, isNotNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -107,57 +104,52 @@ void main() {
     );
     await _showEditor(tester, service, recording: recording, settle: false);
 
-    final save = find.widgetWithText(FilledButton, 'Save copy');
-    expect(tester.widget<FilledButton>(save).onPressed, isNull);
-    expect(
-      tester.widget<IconButton>(find.byTooltip('Play selection')).onPressed,
-      isNull,
-    );
+    final save = find.widgetWithText(TextButton, 'Save copy');
+    expect(tester.widget<TextButton>(save).onPressed, isNull);
+    final playButton = tester
+        .widgetList<IconButton>(find.byType(IconButton))
+        .singleWhere((button) => button.tooltip == 'Play selection');
+    expect(playButton.onPressed, isNull);
     loaded.complete(
       RecordingWaveform(duration: service.duration, peaks: service.peaks),
     );
     await tester.pumpAndSettle();
 
     expect(find.byType(AudioCropWaveform), findsOneWidget);
-    expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
+    expect(tester.widget<TextButton>(save).onPressed, isNotNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets(
-    'late waveform loading preserves the crop and playback position',
-    (tester) async {
-      final loaded = Completer<RecordingWaveform>();
-      final service = _EditorService()..pendingWaveform = loaded.future;
-      await _showEditor(tester, service, settle: false);
-      tester.widget<RangeSlider>(find.byType(RangeSlider)).onChanged!(
-        const RangeValues(0.25, 0.75),
-      );
-      await tester.pump();
-      final play = find.byTooltip('Play selection');
-      await tester.ensureVisible(play);
-      await tester.tap(play);
-      await tester.pump();
-      expect(service.position, const Duration(seconds: 5));
+  testWidgets('late waveform loading preserves playback position', (
+    tester,
+  ) async {
+    final loaded = Completer<RecordingWaveform>();
+    final service = _EditorService()..pendingWaveform = loaded.future;
+    await _showEditor(tester, service, settle: false);
+    final play = find.byTooltip('Play selection');
+    await tester.ensureVisible(play);
+    await tester.tap(play);
+    await tester.pump();
+    expect(service.position, Duration.zero);
 
-      service.position = const Duration(seconds: 8);
-      await tester.pump(const Duration(milliseconds: 150));
-      await tester.pump();
-      loaded.complete(
-        RecordingWaveform(duration: service.duration, peaks: service.peaks),
-      );
-      await tester.pumpAndSettle();
+    service.position = const Duration(seconds: 8);
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump();
+    loaded.complete(
+      RecordingWaveform(duration: service.duration, peaks: service.peaks),
+    );
+    await tester.pumpAndSettle();
 
-      final waveform = tester.widget<AudioCropWaveform>(
-        find.byType(AudioCropWaveform),
-      );
-      expect(waveform.selection, const RangeValues(0.25, 0.75));
-      expect(waveform.positionListenable!.value, closeTo(0.4, 0.001));
-      expect(service.isPlaying, isTrue);
-      expect(find.byTooltip('Pause'), findsOneWidget);
-      expect(service.calls.where((call) => call == 'play'), hasLength(1));
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+    final waveform = tester.widget<AudioCropWaveform>(
+      find.byType(AudioCropWaveform),
+    );
+    expect(waveform.selection, const RangeValues(0, 1));
+    expect(waveform.positionListenable!.value, closeTo(0.4, 0.001));
+    expect(service.isPlaying, isTrue);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    expect(service.calls.where((call) => call == 'play'), hasLength(1));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'playback ticks update the clock without rebuilding editor content',
@@ -167,8 +159,8 @@ void main() {
       await _tapControl(tester, 'Play selection');
       final title = tester.widget<Text>(find.text(_recording.title));
       final startLabel = tester.widget<Text>(find.text('START'));
-      final save = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Save copy'),
+      final save = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Save copy'),
       );
       final waveform = tester.widget<AudioCropWaveform>(
         find.byType(AudioCropWaveform),
@@ -181,8 +173,8 @@ void main() {
         expect(tester.widget<Text>(find.text(_recording.title)), same(title));
         expect(tester.widget<Text>(find.text('START')), same(startLabel));
         expect(
-          tester.widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Save copy'),
+          tester.widget<TextButton>(
+            find.widgetWithText(TextButton, 'Save copy'),
           ),
           same(save),
         );
@@ -335,6 +327,24 @@ void main() {
           .selection,
       const RangeValues(0, 1),
     );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('editor fits a narrow screen without vertical scrolling', (
+    tester,
+  ) async {
+    final service = _EditorService();
+    await _showEditor(tester, service, size: const Size(320, 568));
+    final scrollable = tester.state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(AudioEditorScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(scrollable.position.maxScrollExtent, 0);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
