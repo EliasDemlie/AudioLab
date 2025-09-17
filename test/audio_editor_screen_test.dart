@@ -13,7 +13,7 @@ import 'package:voicerec/widgets/circular_eq_dial.dart';
 import 'package:voicerec/widgets/audio_crop_waveform.dart';
 
 void main() {
-  testWidgets('editor keeps crop updates local and exposes circular effects', (
+  testWidgets('editor keeps crop local with visible preset and EQ controls', (
     tester,
   ) async {
     final service = _EditorService();
@@ -34,8 +34,12 @@ void main() {
       const RangeValues(0.25, 0.75),
     );
 
-    await _tapControl(tester, 'Show effects');
     expect(find.byType(CircularEqDial), findsNWidgets(3));
+    expect(find.byType(ChoiceChip), findsNWidgets(4));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Voice'));
+    await tester.pumpAndSettle();
+    expect(service.equalizerUpdates, hasLength(1));
+    expect(service.equalizerUpdates.single, [-0.12, 0.22, 0.18]);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -320,7 +324,7 @@ void main() {
     expect(service.isPlaying, isTrue);
     await _tapControl(tester, 'Pause');
     await _select(tester, const RangeValues(0.1, 0.9));
-    await _tapText(tester, 'Reset selection');
+    await _tapControl(tester, 'Reset selection');
     expect(
       tester
           .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
@@ -484,6 +488,7 @@ class _EditorService extends RecorderService {
   bool failTrim = false;
   bool failSeek = false;
   int waveformLoads = 0;
+  final List<List<double>> equalizerUpdates = [];
   Duration position = Duration.zero;
   bool isPlaying = false;
   Duration? trimStart;
@@ -548,6 +553,11 @@ class _EditorService extends RecorderService {
     duration: duration,
     isPlaying: isPlaying,
   );
+
+  @override
+  Future<void> setPlaybackEqualizer(List<double> gains) async {
+    equalizerUpdates.add(List<double>.of(gains));
+  }
 
   @override
   Future<String> trimAudio(
