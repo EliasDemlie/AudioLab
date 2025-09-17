@@ -19,14 +19,22 @@ void main() {
     final service = _EditorService();
     await _showEditor(tester, service);
 
-    final title = tester.widget<Text>(find.text(_recording.title));
+    final save = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Save copy'),
+    );
+    expect(find.text(_recording.title), findsNothing);
+    expect(find.text('START'), findsNothing);
+    expect(find.text('END'), findsNothing);
     final waveform = tester.widget<AudioCropWaveform>(
       find.byType(AudioCropWaveform),
     );
     waveform.onSelectionChanged(const RangeValues(0.25, 0.75));
     await tester.pump();
 
-    expect(tester.widget<Text>(find.text(_recording.title)), same(title));
+    expect(
+      tester.widget<TextButton>(find.widgetWithText(TextButton, 'Save copy')),
+      same(save),
+    );
     expect(
       tester
           .widget<AudioCropWaveform>(find.byType(AudioCropWaveform))
@@ -156,13 +164,11 @@ void main() {
   });
 
   testWidgets(
-    'playback ticks update the clock without rebuilding editor content',
+    'playback ticks update the progress without rebuilding editor content',
     (tester) async {
       final service = _EditorService();
       await _showEditor(tester, service);
       await _tapControl(tester, 'Play selection');
-      final title = tester.widget<Text>(find.text(_recording.title));
-      final startLabel = tester.widget<Text>(find.text('START'));
       final save = tester.widget<TextButton>(
         find.widgetWithText(TextButton, 'Save copy'),
       );
@@ -174,8 +180,6 @@ void main() {
         service.position = Duration(seconds: second);
         await tester.pump(const Duration(milliseconds: 120));
         await tester.pump();
-        expect(tester.widget<Text>(find.text(_recording.title)), same(title));
-        expect(tester.widget<Text>(find.text('START')), same(startLabel));
         expect(
           tester.widget<TextButton>(
             find.widgetWithText(TextButton, 'Save copy'),
@@ -187,11 +191,75 @@ void main() {
           same(waveform),
         );
         expect(waveform.positionListenable!.value, closeTo(second / 20, 0.001));
+        expect(
+          tester.widget<Slider>(_progress).value,
+          closeTo(second / 20, 0.001),
+        );
       }
-      expect(find.textContaining('00:03.0'), findsOneWidget);
+      expect(tester.widget<Text>(_positionLabel).data, '00:03.0');
+      expect(tester.widget<Text>(_endLabel).data, '00:20.0');
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('progress previews only the selected range and its end time', (
+    tester,
+  ) async {
+    final service = _EditorService();
+    await _showEditor(tester, service);
+    await _select(tester, const RangeValues(0.25, 0.75));
+
+    expect(tester.widget<Slider>(_progress).value, 0);
+    expect(tester.widget<Text>(_positionLabel).data, '00:05.0');
+    expect(tester.widget<Text>(_endLabel).data, '00:15.0');
+    expect(
+      tester.getCenter(_positionLabel).dx,
+      lessThan(tester.getCenter(_endLabel).dx),
+    );
+    await _tapControl(tester, 'Play selection');
+    service.position = const Duration(seconds: 8);
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump();
+
+    expect(tester.widget<Slider>(_progress).value, closeTo(0.3, 0.001));
+    expect(tester.widget<Text>(_positionLabel).data, '00:08.0');
+    expect(tester.widget<Text>(_endLabel).data, '00:15.0');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('playback polling preserves a scrub until seeking on release', (
+    tester,
+  ) async {
+    final service = _EditorService();
+    await _showEditor(tester, service);
+    await _select(tester, const RangeValues(0.25, 0.75));
+    await _tapControl(tester, 'Play selection');
+    final seekCount = service.calls.where((call) => call == 'seek').length;
+
+    var progress = tester.widget<Slider>(_progress);
+    progress.onChangeStart!(0);
+    progress.onChanged!(0.6);
+    await tester.pump();
+    service.position = const Duration(seconds: 6);
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump();
+
+    expect(tester.widget<Slider>(_progress).value, closeTo(0.6, 0.001));
+    expect(tester.widget<Text>(_positionLabel).data, '00:11.0');
+    expect(service.calls.where((call) => call == 'seek'), hasLength(seekCount));
+    progress = tester.widget<Slider>(_progress);
+    progress.onChangeEnd!(0.6);
+    await tester.pumpAndSettle();
+
+    expect(service.position, const Duration(seconds: 11));
+    expect(service.isPlaying, isTrue);
+    expect(
+      service.calls.where((call) => call == 'seek'),
+      hasLength(seekCount + 1),
+    );
+    expect(tester.widget<Slider>(_progress).value, closeTo(0.6, 0.001));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('preview plays and pauses inside the selected section', (
     tester,
@@ -353,6 +421,10 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
+
+final _progress = find.byKey(const ValueKey('editor-playback-progress'));
+final _positionLabel = find.byKey(const ValueKey('editor-playback-position'));
+final _endLabel = find.byKey(const ValueKey('editor-playback-end'));
 
 final _recording = Recording(
   file: File('/recordings/voice-note.m4a'),
