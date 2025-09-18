@@ -380,7 +380,9 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
               onPressed: canSave ? _save : null,
               style: TextButton.styleFrom(
                 minimumSize: const Size(48, 40),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                backgroundColor: colors.primary.withValues(alpha: 0.1),
+                shape: const StadiumBorder(),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(_saving ? 'Saving…' : 'Save copy'),
@@ -390,7 +392,8 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
         ),
         body: SafeArea(
           top: false,
-          child: Center(
+          child: Align(
+            alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: SingleChildScrollView(
@@ -398,10 +401,9 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 2),
                     _loading
                         ? const SizedBox(
-                            height: 132,
+                            height: 124,
                             child: Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -434,25 +436,20 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                               ],
                             ),
                           )
-                        : Column(
-                            children: [
-                              ValueListenableBuilder<RangeValues>(
-                                valueListenable: _selection,
-                                builder: (context, selection, _) =>
-                                    AudioCropWaveform(
-                                      peaks: _waveform!.peaks,
-                                      selection: selection,
-                                      position: _positionProgress.value,
-                                      positionListenable: _positionProgress,
-                                      height: 124,
-                                      minimumSelection: _minimumSelection,
-                                      enabled: _ready && !_saving,
-                                      onSelectionChanged: _changeSelection,
-                                      onSeek: (fraction) =>
-                                          _seek(_at(fraction)),
-                                    ),
-                              ),
-                            ],
+                        : ValueListenableBuilder<RangeValues>(
+                            valueListenable: _selection,
+                            builder: (context, selection, _) =>
+                                AudioCropWaveform(
+                                  peaks: _waveform!.peaks,
+                                  selection: selection,
+                                  position: _positionProgress.value,
+                                  positionListenable: _positionProgress,
+                                  height: 124,
+                                  minimumSelection: _minimumSelection,
+                                  enabled: _ready && !_saving,
+                                  onSelectionChanged: _changeSelection,
+                                  onSeek: (fraction) => _seek(_at(fraction)),
+                                ),
                           ),
                     const SizedBox(height: 6),
                     ValueListenableBuilder<RangeValues>(
@@ -468,20 +465,20 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                     ),
                     const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(
-                          tooltip: 'Reset selection',
-                          onPressed: enabled
-                              ? () => _changeSelection(const RangeValues(0, 1))
-                              : null,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 36,
-                            height: 36,
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _PreviewSkipButton(
+                              tooltip: 'Reset selection',
+                              onPressed: enabled
+                                  ? () => _changeSelection(
+                                      const RangeValues(0, 1),
+                                    )
+                                  : null,
+                              icon: Icons.restart_alt_rounded,
+                            ),
                           ),
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.restart_alt_rounded, size: 19),
                         ),
                         _PreviewSkipButton(
                           tooltip: 'Back 5 seconds',
@@ -492,6 +489,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                               : null,
                           icon: Icons.replay_5_rounded,
                         ),
+                        const SizedBox(width: 12),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.all(6),
@@ -554,6 +552,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 12),
                         _PreviewSkipButton(
                           tooltip: 'Forward 5 seconds',
                           onPressed: canPreview
@@ -563,7 +562,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                               : null,
                           icon: Icons.forward_5_rounded,
                         ),
-                        const SizedBox(width: 36),
+                        const Spacer(),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -767,88 +766,79 @@ class _InlineEffectsPanel extends StatelessWidget {
   final ValueChanged<List<double>> onChanged;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Column(
-      children: [
-        Row(
-          children: [
-            Text(
-              'EQUALIZER',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const Spacer(),
-            ValueListenableBuilder<bool>(
-              valueListenable: busy,
-              builder: (context, isBusy, _) => isBusy
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ValueListenableBuilder<List<double>>(
-          valueListenable: gains,
-          builder: (context, values, _) => ValueListenableBuilder<bool>(
-            valueListenable: busy,
-            builder: (context, isBusy, _) => Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 4,
-              runSpacing: 0,
-              children: [
-                for (final preset in audioEffectPresets.entries)
-                  ChoiceChip(
-                    showCheckmark: false,
-                    label: Text(preset.key, maxLines: 1, softWrap: false),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 3),
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: EdgeInsets.zero,
-                    selected: audioEffectPresetFor(values) == preset.key,
-                    onSelected: isBusy ? null : (_) => onChanged(preset.value),
-                  ),
-              ],
+  Widget build(BuildContext context) => Column(
+    children: [
+      Row(
+        children: [
+          Text(
+            'EQUALIZER',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        ValueListenableBuilder<List<double>>(
-          valueListenable: gains,
-          builder: (context, values, _) => Row(
+          const Spacer(),
+          ValueListenableBuilder<bool>(
+            valueListenable: busy,
+            builder: (context, isBusy, _) => isBusy
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      ValueListenableBuilder<List<double>>(
+        valueListenable: gains,
+        builder: (context, values, _) => ValueListenableBuilder<bool>(
+          valueListenable: busy,
+          builder: (context, isBusy, _) => Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
-              Expanded(
-                child: CircularEqDial(
-                  label: 'Bass',
-                  value: values[0],
-                  onChanged: (value) =>
-                      onChanged([value, values[1], values[2]]),
+              for (final preset in audioEffectPresets.entries)
+                ChoiceChip(
+                  showCheckmark: false,
+                  label: Text(preset.key, maxLines: 1, softWrap: false),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  selected: audioEffectPresetFor(values) == preset.key,
+                  onSelected: isBusy ? null : (_) => onChanged(preset.value),
                 ),
-              ),
-              Expanded(
-                child: CircularEqDial(
-                  label: 'Presence',
-                  value: values[1],
-                  onChanged: (value) =>
-                      onChanged([values[0], value, values[2]]),
-                ),
-              ),
-              Expanded(
-                child: CircularEqDial(
-                  label: 'Treble',
-                  value: values[2],
-                  onChanged: (value) =>
-                      onChanged([values[0], values[1], value]),
-                ),
-              ),
             ],
           ),
         ),
-      ],
-    ),
+      ),
+      const SizedBox(height: 8),
+      ValueListenableBuilder<List<double>>(
+        valueListenable: gains,
+        builder: (context, values, _) => Row(
+          children: [
+            Expanded(
+              child: CircularEqDial(
+                label: 'Bass',
+                value: values[0],
+                onChanged: (value) => onChanged([value, values[1], values[2]]),
+              ),
+            ),
+            Expanded(
+              child: CircularEqDial(
+                label: 'Presence',
+                value: values[1],
+                onChanged: (value) => onChanged([values[0], value, values[2]]),
+              ),
+            ),
+            Expanded(
+              child: CircularEqDial(
+                label: 'Treble',
+                value: values[2],
+                onChanged: (value) => onChanged([values[0], values[1], value]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
   );
 }
