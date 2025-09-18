@@ -11,7 +11,7 @@ import '../models/recording_waveform.dart';
 import '../utils/audio_effect_presets.dart';
 import '../utils/formatters.dart';
 import '../widgets/audio_crop_waveform.dart';
-import '../widgets/circular_eq_dial.dart';
+import '../widgets/equalizer_dials.dart';
 
 class AudioEditorScreen extends StatefulWidget {
   const AudioEditorScreen({
@@ -344,6 +344,9 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final waveformHeight = MediaQuery.sizeOf(context).height < 640
+        ? 92.0
+        : 124.0;
     final enabled = _ready && !_busy && !_saving;
     final canPreview = _duration > Duration.zero && !_busy && !_saving;
     final canSave =
@@ -402,9 +405,9 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _loading
-                        ? const SizedBox(
-                            height: 124,
-                            child: Center(
+                        ? SizedBox(
+                            height: waveformHeight,
+                            child: const Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -444,7 +447,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                                   selection: selection,
                                   position: _positionProgress.value,
                                   positionListenable: _positionProgress,
-                                  height: 124,
+                                  height: waveformHeight,
                                   minimumSelection: _minimumSelection,
                                   enabled: _ready && !_saving,
                                   onSelectionChanged: _changeSelection,
@@ -810,34 +813,11 @@ class _InlineEffectsPanel extends StatelessWidget {
           ),
         ),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 16),
       ValueListenableBuilder<List<double>>(
         valueListenable: gains,
-        builder: (context, values, _) => Row(
-          children: [
-            Expanded(
-              child: CircularEqDial(
-                label: 'Bass',
-                value: values[0],
-                onChanged: (value) => onChanged([value, values[1], values[2]]),
-              ),
-            ),
-            Expanded(
-              child: CircularEqDial(
-                label: 'Presence',
-                value: values[1],
-                onChanged: (value) => onChanged([values[0], value, values[2]]),
-              ),
-            ),
-            Expanded(
-              child: CircularEqDial(
-                label: 'Treble',
-                value: values[2],
-                onChanged: (value) => onChanged([values[0], values[1], value]),
-              ),
-            ),
-          ],
-        ),
+        builder: (context, values, _) =>
+            EqualizerDials(gains: values, onChanged: onChanged),
       ),
     ],
   );
