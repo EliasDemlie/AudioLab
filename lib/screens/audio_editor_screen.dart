@@ -8,10 +8,11 @@ import 'package:flutter/services.dart';
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
 import '../models/recording_waveform.dart';
-import '../utils/audio_effect_presets.dart';
 import '../utils/formatters.dart';
 import '../widgets/audio_crop_waveform.dart';
-import '../widgets/equalizer_dials.dart';
+import '../widgets/audio_equalizer_panel.dart';
+import '../widgets/audio_playback_layout.dart';
+import '../widgets/audio_transport_controls.dart';
 
 class AudioEditorScreen extends StatefulWidget {
   const AudioEditorScreen({
@@ -344,9 +345,6 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final waveformHeight = MediaQuery.sizeOf(context).height < 640
-        ? 92.0
-        : 124.0;
     final enabled = _ready && !_busy && !_saving;
     final canPreview = _duration > Duration.zero && !_busy && !_saving;
     final canSave =
@@ -365,7 +363,7 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
               onPressed: _saving || _busy
                   ? null
                   : () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 28),
+              icon: const Icon(Icons.arrow_back_rounded, size: 28),
               style: IconButton.styleFrom(
                 backgroundColor: colors.onSurface.withValues(alpha: 0.06),
                 foregroundColor: colors.onSurface,
@@ -393,191 +391,103 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
             const SizedBox(width: 8),
           ],
         ),
-        body: SafeArea(
-          top: false,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 10, 24, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _loading
-                        ? SizedBox(
-                            height: waveformHeight,
-                            child: const Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(strokeWidth: 2),
-                                  SizedBox(height: 16),
-                                  Text('Loading waveform…'),
-                                ],
-                              ),
-                            ),
-                          )
-                        : _loadError != null
-                        ? Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.multitrack_audio_rounded,
-                                  size: 40,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(_loadError!, textAlign: TextAlign.center),
-                                const SizedBox(height: 12),
-                                OutlinedButton.icon(
-                                  onPressed: _loadWaveform,
-                                  icon: const Icon(Icons.refresh_rounded),
-                                  label: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ValueListenableBuilder<RangeValues>(
-                            valueListenable: _selection,
-                            builder: (context, selection, _) =>
-                                AudioCropWaveform(
-                                  peaks: _waveform!.peaks,
-                                  selection: selection,
-                                  position: _positionProgress.value,
-                                  positionListenable: _positionProgress,
-                                  height: waveformHeight,
-                                  minimumSelection: _minimumSelection,
-                                  enabled: _ready && !_saving,
-                                  onSelectionChanged: _changeSelection,
-                                  onSeek: (fraction) => _seek(_at(fraction)),
-                                ),
-                          ),
-                    const SizedBox(height: 6),
-                    ValueListenableBuilder<RangeValues>(
-                      valueListenable: _selection,
-                      builder: (context, selection, _) =>
-                          _EditorPlaybackProgress(
-                            position: _positionProgress,
-                            duration: _duration,
-                            selection: selection,
-                            enabled: canPreview,
-                            onSeek: _seek,
-                          ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
+        body: AudioPlaybackLayout(
+          title: 'Trim selection',
+          waveformBuilder: (height) => _loading
+              ? SizedBox(
+                  height: height,
+                  child: const Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: _PreviewSkipButton(
-                              tooltip: 'Reset selection',
-                              onPressed: enabled
-                                  ? () => _changeSelection(
-                                      const RangeValues(0, 1),
-                                    )
-                                  : null,
-                              icon: Icons.restart_alt_rounded,
-                            ),
-                          ),
+                        SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        _PreviewSkipButton(
-                          tooltip: 'Back 5 seconds',
-                          onPressed: canPreview
-                              ? () => _seek(
-                                  _position - const Duration(seconds: 5),
-                                )
-                              : null,
-                          icon: Icons.replay_5_rounded,
-                        ),
-                        const SizedBox(width: 12),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: colors.primary.withValues(alpha: 0.18),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colors.primary.withValues(
-                                  alpha: _playing ? 0.2 : 0.1,
-                                ),
-                                blurRadius: 30,
-                                spreadRadius: -2,
-                              ),
-                            ],
-                          ),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  colors.primary,
-                                  Color.lerp(
-                                    colors.primary,
-                                    colors.tertiary,
-                                    0.3,
-                                  )!,
-                                ],
-                              ),
-                            ),
-                            child: SizedBox.square(
-                              dimension: 56,
-                              child: IconButton(
-                                tooltip: _playing ? 'Pause' : 'Play selection',
-                                onPressed: canPreview ? _togglePlayback : null,
-                                style: IconButton.styleFrom(
-                                  shape: const CircleBorder(),
-                                  foregroundColor: colors.onPrimary,
-                                  disabledForegroundColor: colors.onPrimary,
-                                ),
-                                icon: _busy
-                                    ? SizedBox.square(
-                                        dimension: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: colors.onPrimary,
-                                        ),
-                                      )
-                                    : Icon(
-                                        _playing
-                                            ? Icons.pause_rounded
-                                            : Icons.play_arrow_rounded,
-                                        size: 32,
-                                      ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        _PreviewSkipButton(
-                          tooltip: 'Forward 5 seconds',
-                          onPressed: canPreview
-                              ? () => _seek(
-                                  _position + const Duration(seconds: 5),
-                                )
-                              : null,
-                          icon: Icons.forward_5_rounded,
-                        ),
-                        const Spacer(),
+                        SizedBox(width: 12),
+                        Flexible(child: Text('Loading waveform…')),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _InlineEffectsPanel(
-                      gains: _equalizerGains,
-                      busy: _effectsBusy,
-                      onChanged: _applyEqualizer,
-                    ),
-                  ],
+                  ),
+                )
+              : _loadError != null
+              ? Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.multitrack_audio_rounded,
+                        size: 40,
+                        color: colors.onSurfaceVariant,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(_loadError!, textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _loadWaveform,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : ValueListenableBuilder<RangeValues>(
+                  valueListenable: _selection,
+                  builder: (context, selection, _) => AudioCropWaveform(
+                    peaks: _waveform!.peaks,
+                    selection: selection,
+                    position: _positionProgress.value,
+                    positionListenable: _positionProgress,
+                    height: height,
+                    minimumSelection: _minimumSelection,
+                    enabled: _ready && !_saving,
+                    onSelectionChanged: _changeSelection,
+                    onSeek: (fraction) => _seek(_at(fraction)),
+                  ),
+                ),
+          controls: Column(
+            children: [
+              ValueListenableBuilder<RangeValues>(
+                valueListenable: _selection,
+                builder: (context, selection, _) => _EditorPlaybackProgress(
+                  position: _positionProgress,
+                  duration: _duration,
+                  selection: selection,
+                  enabled: canPreview,
+                  onSeek: _seek,
                 ),
               ),
-            ),
+              SizedBox(height: AudioPlaybackLayout.controlSpacing(context)),
+              AudioTransportControls(
+                playing: _playing,
+                busy: _busy,
+                playTooltip: _playing ? 'Pause' : 'Play selection',
+                onToggle: canPreview ? _togglePlayback : null,
+                backTooltip: 'Back 5 seconds',
+                forwardTooltip: 'Forward 5 seconds',
+                backIcon: Icons.replay_5_rounded,
+                forwardIcon: Icons.forward_5_rounded,
+                onBack: canPreview
+                    ? () => _seek(_position - const Duration(seconds: 5))
+                    : null,
+                onForward: canPreview
+                    ? () => _seek(_position + const Duration(seconds: 5))
+                    : null,
+                leading: _PreviewSkipButton(
+                  tooltip: 'Reset selection',
+                  onPressed: enabled
+                      ? () => _changeSelection(const RangeValues(0, 1))
+                      : null,
+                  icon: Icons.restart_alt_rounded,
+                ),
+                trailing: const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          effects: AudioEqualizerPanel(
+            gains: _equalizerGains,
+            busy: _effectsBusy,
+            onChanged: _applyEqualizer,
           ),
         ),
       ),
@@ -755,70 +665,4 @@ class _PreviewSkipButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _InlineEffectsPanel extends StatelessWidget {
-  const _InlineEffectsPanel({
-    required this.gains,
-    required this.busy,
-    required this.onChanged,
-  });
-
-  final ValueListenable<List<double>> gains;
-  final ValueListenable<bool> busy;
-  final ValueChanged<List<double>> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Row(
-        children: [
-          Text(
-            'EQUALIZER',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const Spacer(),
-          ValueListenableBuilder<bool>(
-            valueListenable: busy,
-            builder: (context, isBusy, _) => isBusy
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ),
-      const SizedBox(height: 8),
-      ValueListenableBuilder<List<double>>(
-        valueListenable: gains,
-        builder: (context, values, _) => ValueListenableBuilder<bool>(
-          valueListenable: busy,
-          builder: (context, isBusy, _) => Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final preset in audioEffectPresets.entries)
-                ChoiceChip(
-                  showCheckmark: false,
-                  label: Text(preset.key, maxLines: 1, softWrap: false),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  selected: audioEffectPresetFor(values) == preset.key,
-                  onSelected: isBusy ? null : (_) => onChanged(preset.value),
-                ),
-            ],
-          ),
-        ),
-      ),
-      const SizedBox(height: 16),
-      ValueListenableBuilder<List<double>>(
-        valueListenable: gains,
-        builder: (context, values, _) =>
-            EqualizerDials(gains: values, onChanged: onChanged),
-      ),
-    ],
-  );
 }
