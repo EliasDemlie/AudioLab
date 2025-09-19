@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:voicerec/app_theme.dart';
 import 'package:voicerec/controllers/recorder_controller.dart';
 import 'package:voicerec/models/recording.dart';
 import 'package:voicerec/models/recording_waveform.dart';
@@ -73,8 +74,10 @@ void main() {
     expect(find.byTooltip('More options'), findsNothing);
     expect(find.byIcon(Icons.edit_outlined), findsNothing);
     expect(find.text('Edit'), findsOneWidget);
-    expect(find.byTooltip('Share recording'), findsOneWidget);
-    expect(find.byType(CircularEqDial), findsNWidgets(3));
+    expect(find.byTooltip('Share recording'), findsNothing);
+    expect(find.widgetWithText(TextButton, 'Effect'), findsOneWidget);
+    expect(find.byType(CircularEqDial), findsNothing);
+    expect(find.byType(ChoiceChip), findsNothing);
     expect(find.text('Effects'), findsNothing);
     expect(service.calls, isEmpty);
     final waveform = find.byKey(const ValueKey('playback-waveform'));
@@ -222,7 +225,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('player keeps equalizer controls visible without a button', (
+  testWidgets('player toggles effects and retains gains during playback', (
     tester,
   ) async {
     final service = _PlaybackService();
@@ -230,6 +233,13 @@ void main() {
 
     expect(find.byType(RecordingSavedScreen), findsOneWidget);
     expect(find.byType(AudioEffectsScreen), findsNothing);
+    expect(find.byType(CircularEqDial), findsNothing);
+    expect(find.byType(ChoiceChip), findsNothing);
+    await _tapControl(tester, 'Play');
+    service._position = const Duration(seconds: 7);
+    await tester.pump(const Duration(milliseconds: 350));
+    await _tapControl(tester, 'Show effects');
+
     expect(find.byType(CircularEqDial), findsNWidgets(3));
     final presetChips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
     expect(presetChips, hasLength(4));
@@ -238,59 +248,94 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.equalizerUpdates, hasLength(1));
     expect(service.equalizerUpdates.single, [-0.12, 0.22, 0.18]);
+    await _tapControl(tester, 'Hide effects');
+    expect(find.byType(CircularEqDial), findsNothing);
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    await _tapControl(tester, 'Show effects');
+
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Voice'))
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widgetList<CircularEqDial>(find.byType(CircularEqDial))
+          .map((dial) => dial.value),
+      [-0.12, 0.22, 0.18],
+    );
+    expect(service.equalizerUpdates, hasLength(1));
+    expect(service.calls, ['play']);
+    expect(service._position, const Duration(seconds: 7));
+    expect(find.byType(AudioEffectsScreen), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets(
-    'player supports small screens, larger text, and back navigation',
-    (tester) async {
-      final service = _PlaybackService();
-      final controller = RecorderController(service: service);
-      addTearDown(controller.dispose);
-      _setViewport(tester, const Size(320, 568));
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark(useMaterial3: true),
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: TextScaler.linear(1.8)),
-            child: child!,
-          ),
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: Center(
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) => RecordingSavedScreen(
-                        recording: _recording,
-                        controller: controller,
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'player supports small screens, larger text, and back navigation in $brightness',
+      (tester) async {
+        final service = _PlaybackService();
+        final controller = RecorderController(service: service);
+        addTearDown(controller.dispose);
+        _setViewport(tester, const Size(320, 568));
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: brightness == Brightness.light
+                ? VoiceRecTheme.light
+                : VoiceRecTheme.dark,
+            builder: (context, child) => VoiceRecBackdrop(
+              child: MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(1.8)),
+                child: child!,
+              ),
+            ),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) => RecordingSavedScreen(
+                          recording: _recording,
+                          controller: controller,
+                        ),
                       ),
                     ),
+                    child: const Text('Open recording'),
                   ),
-                  child: const Text('Open recording'),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.tap(find.text('Open recording'));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+        );
+        await tester.tap(find.text('Open recording'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
 
-      await _tapControl(tester, 'Play');
-      expect(find.byTooltip('Pause'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+        await _tapControl(tester, 'Play');
+        expect(find.byTooltip('Pause'), findsOneWidget);
+        expect(tester.takeException(), isNull);
 
-      await _tapControl(tester, 'Back to library');
-      expect(find.byType(RecordingSavedScreen), findsNothing);
-      expect(find.text('Open recording'), findsOneWidget);
-      expect(service.calls.last, 'stop');
-      expect(tester.takeException(), isNull);
-    },
-  );
+        await _tapControl(tester, 'Show effects');
+        await tester.ensureVisible(find.byType(CircularEqDial).last);
+        await tester.pumpAndSettle();
+        expect(find.byType(CircularEqDial), findsNWidgets(3));
+        expect(tester.takeException(), isNull);
+        await _tapControl(tester, 'Hide effects');
+
+        await _tapControl(tester, 'Back to library');
+        expect(find.byType(RecordingSavedScreen), findsNothing);
+        expect(find.text('Open recording'), findsOneWidget);
+        expect(service.calls.last, 'stop');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 final _recording = Recording(
