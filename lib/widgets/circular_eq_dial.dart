@@ -91,14 +91,14 @@ class _CircularEqDialState extends State<CircularEqDial> {
     final colors = theme.colorScheme;
     final dark = theme.brightness == Brightness.dark;
     final faceHighlight = Color.lerp(
-      colors.surfaceContainerHigh,
-      colors.onSurface,
-      dark ? 0.13 : 0.02,
+      dark ? colors.surfaceContainerHigh : colors.surface,
+      dark ? colors.onSurface : Colors.white,
+      dark ? 0.13 : 0.75,
     )!;
     final faceShadow = Color.lerp(
-      colors.surfaceContainerHigh,
-      Colors.black,
-      dark ? 0.3 : 0.07,
+      dark ? colors.surfaceContainerHigh : colors.surface,
+      dark ? Colors.black : colors.primary,
+      dark ? 0.3 : 0.08,
     )!;
 
     return Semantics(
@@ -178,15 +178,19 @@ class _CircularEqDialState extends State<CircularEqDial> {
                                     0.25,
                                   )!,
                                   faceShadow,
-                                  Color.lerp(faceShadow, Colors.black, 0.35)!,
+                                  Color.lerp(
+                                    faceShadow,
+                                    dark ? Colors.black : colors.primary,
+                                    dark ? 0.35 : 0.1,
+                                  )!,
                                 ],
                                 stops: const [0, 0.52, 1],
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(
-                                    alpha: dark ? 0.6 : 0.2,
-                                  ),
+                                  color:
+                                      (dark ? Colors.black : colors.onSurface)
+                                          .withValues(alpha: dark ? 0.6 : 0.08),
                                   blurRadius: size * 0.09,
                                   offset: Offset(0, size * 0.055),
                                 ),
