@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +9,7 @@ import '../utils/formatters.dart';
 import '../widgets/audio_equalizer_panel.dart';
 import '../widgets/audio_playback_layout.dart';
 import '../widgets/audio_transport_controls.dart';
+import '../widgets/audio_waveform_geometry.dart';
 import 'audio_editor_screen.dart';
 
 class RecordingSavedScreen extends StatefulWidget {
@@ -479,59 +479,56 @@ class _PlaybackWaveform extends StatelessWidget {
     required this.height,
   });
 
-  static const _barCount = 31;
-
   final List<double> peaks;
   final double progress;
   final bool isPlaying;
   final double height;
 
-  double _amplitudeForBar(int barIndex) {
-    if (peaks.isEmpty) return 0.12;
-    final startIndex = barIndex * peaks.length ~/ _barCount;
-    final endIndex = math.max(
-      startIndex + 1,
-      (barIndex + 1) * peaks.length ~/ _barCount,
-    );
-    var amplitude = 0.0;
-    for (var sampleIndex = startIndex; sampleIndex < endIndex; sampleIndex++) {
-      final peak = peaks[sampleIndex];
-      if (peak.isFinite && peak > amplitude) {
-        amplitude = peak.clamp(0.0, 1.0).toDouble();
-      }
-    }
-    return amplitude;
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final activeBar = (progress * _barCount).floor();
     return Semantics(
       key: const ValueKey('playback-waveform'),
       label: isPlaying ? 'Playing waveform' : 'Recording waveform',
       child: SizedBox(
         width: double.infinity,
         height: height,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            for (var index = 0; index < _barCount; index++)
-              AnimatedContainer(
-                key: ValueKey('playback-waveform-bar-$index'),
-                width: 4,
-                height: (5 + _amplitudeForBar(index) * 78) * height / 124,
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeInOut,
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(
-                    alpha: isPlaying && index <= activeBar ? 0.98 : 0.42,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final geometry = AudioWaveformGeometry(
+              peaks.isEmpty ? const [0.12] : peaks,
+              Size(constraints.maxWidth, height),
+            );
+            final activeBar = (progress * geometry.bars.length).floor();
+            return Stack(
+              children: [
+                for (var index = 0; index < geometry.bars.length; index++)
+                  Positioned(
+                    left: geometry.bars[index].left,
+                    width: geometry.bars[index].width,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: AnimatedContainer(
+                        key: ValueKey('playback-waveform-bar-$index'),
+                        width: geometry.bars[index].width,
+                        height: geometry.bars[index].height,
+                        duration: const Duration(milliseconds: 240),
+                        curve: Curves.easeInOut,
+                        decoration: BoxDecoration(
+                          color: colors.primary.withValues(
+                            alpha: isPlaying && index <= activeBar
+                                ? 0.98
+                                : AudioWaveformGeometry.idleOpacity,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );

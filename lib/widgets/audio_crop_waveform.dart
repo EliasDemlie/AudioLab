@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'audio_waveform_geometry.dart';
+
 /// A recording's amplitude envelope with crop handles and a playback cursor.
 class AudioCropWaveform extends StatefulWidget {
   const AudioCropWaveform({
@@ -36,17 +38,17 @@ class AudioCropWaveform extends StatefulWidget {
 }
 
 class _AudioCropWaveformState extends State<AudioCropWaveform> {
-  static const _inset = 12.0;
+  static const _inset = AudioWaveformGeometry.inset;
   RangeValues? _dragSelection;
   bool? _draggingStart;
   double _dragDistance = 0;
   List<double>? _geometryPeaks;
-  _WaveformGeometry? _geometry;
+  AudioWaveformGeometry? _geometry;
 
-  _WaveformGeometry _geometryFor(Size size) {
+  AudioWaveformGeometry _geometryFor(Size size) {
     if (!identical(_geometryPeaks, widget.peaks) || _geometry?.size != size) {
       _geometryPeaks = widget.peaks;
-      _geometry = _WaveformGeometry(widget.peaks, size);
+      _geometry = AudioWaveformGeometry(widget.peaks, size);
     }
     return _geometry!;
   }
@@ -221,7 +223,7 @@ class _CropWaveformPainter extends CustomPainter {
     required this.enabled,
   });
 
-  final _WaveformGeometry geometry;
+  final AudioWaveformGeometry geometry;
   final RangeValues selection;
   final Color primary;
   final Color foreground;
@@ -229,25 +231,22 @@ class _CropWaveformPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const inset = 12.0;
+    const inset = AudioWaveformGeometry.inset;
     final width = math.max(1.0, size.width - inset * 2);
     final area = Rect.fromLTWH(inset, 12, width, size.height - 24);
     final startX = area.left + selection.start * area.width;
     final endX = area.left + selection.end * area.width;
-    final paint = Paint()..strokeCap = StrokeCap.round;
-    paint.strokeCap = StrokeCap.round;
+    final paint = Paint();
     for (final bar in geometry.bars) {
-      final x = bar.x;
-      final height = bar.height;
+      final x = bar.center.dx;
       final included = x >= startX && x <= endX;
-      paint
-        ..strokeWidth = geometry.strokeWidth
-        ..color = included
-            ? primary.withValues(alpha: enabled ? 0.95 : 0.4)
-            : foreground.withValues(alpha: enabled ? 0.2 : 0.1);
-      canvas.drawLine(
-        Offset(x, area.center.dy - height / 2),
-        Offset(x, area.center.dy + height / 2),
+      paint.color = included
+          ? primary.withValues(
+              alpha: enabled ? AudioWaveformGeometry.idleOpacity : 0.4,
+            )
+          : foreground.withValues(alpha: enabled ? 0.2 : 0.1);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(bar, const Radius.circular(4)),
         paint,
       );
     }
@@ -271,39 +270,6 @@ class _CropWaveformPainter extends CustomPainter {
       oldDelegate.enabled != enabled;
 }
 
-/// The sampled bars depend on the audio and viewport, not the crop or playhead.
-class _WaveformGeometry {
-  _WaveformGeometry(List<double> peaks, this.size) {
-    final width = math.max(1.0, size.width - 24);
-    final count = math.min(peaks.length, math.max(1, (width / 4).floor()));
-    final step = width / math.max(1, count);
-    strokeWidth = math.min(3.0, step * 0.58);
-    bars = List.generate(count, (i) {
-      final from = i * peaks.length ~/ count;
-      final to = math.max(from + 1, (i + 1) * peaks.length ~/ count);
-      var peak = 0.0;
-      for (var j = from; j < to; j++) {
-        if (peaks[j].isFinite) peak = math.max(peak, peaks[j].clamp(0.0, 1.0));
-      }
-      return _WaveformBar(
-        x: 12 + (i + 0.5) * step,
-        height: math.max(2.0, math.pow(peak, 0.65) * (size.height - 62)),
-      );
-    }, growable: false);
-  }
-
-  final Size size;
-  late final List<_WaveformBar> bars;
-  late final double strokeWidth;
-}
-
-class _WaveformBar {
-  const _WaveformBar({required this.x, required this.height});
-
-  final double x;
-  final double height;
-}
-
 class _PlaybackCursorPainter extends CustomPainter {
   _PlaybackCursorPainter({
     required this.position,
@@ -322,7 +288,8 @@ class _PlaybackCursorPainter extends CustomPainter {
     if (!visible) return;
     final current = positionListenable?.value ?? position;
     final fraction = current.isFinite ? current.clamp(0.0, 1.0) : 0.0;
-    final cursor = 12 + fraction * math.max(1.0, size.width - 24);
+    const inset = AudioWaveformGeometry.inset;
+    final cursor = inset + fraction * math.max(1.0, size.width - inset * 2);
     final paint = Paint()
       ..color = color.withValues(alpha: 0.95)
       ..strokeWidth = 2;
