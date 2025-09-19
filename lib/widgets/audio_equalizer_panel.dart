@@ -19,8 +19,8 @@ class AudioEqualizerPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dialSpacing = MediaQuery.sizeOf(context).height < 640 ? 24.0 : 32.0;
-    return Column(
+    final dialSpacing = MediaQuery.sizeOf(context).height < 640 ? 32.0 : 44.0;
+    final panel = Column(
       children: [
         Row(
           children: [
@@ -71,6 +71,29 @@ class AudioEqualizerPanel extends StatelessWidget {
               EqualizerDials(gains: values, onChanged: onChanged),
         ),
       ],
+    );
+    if (theme.brightness == Brightness.dark) return panel;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: 0.76),
+            theme.colorScheme.primaryContainer.withValues(alpha: 0.32),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withValues(alpha: 0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Padding(padding: const EdgeInsets.all(16), child: panel),
     );
   }
 }

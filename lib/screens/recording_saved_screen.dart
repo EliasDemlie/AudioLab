@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
 import '../utils/formatters.dart';
+import '../widgets/audio_effect_button.dart';
 import '../widgets/audio_equalizer_panel.dart';
 import '../widgets/audio_playback_layout.dart';
 import '../widgets/audio_transport_controls.dart';
@@ -42,6 +43,7 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
   Timer? _playbackTicker;
   bool _hasStartedPlayback = false;
   bool _editing = false;
+  bool _effectsVisible = false;
   int _playbackRevision = 0;
   int _waveformRevision = 0;
 
@@ -283,15 +285,19 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
           duration: _recording.duration,
           isEditing: _editing,
           onEdit: _editAudio,
-          onShare: () => widget.controller.share(_recording),
+          effectsVisible: _effectsVisible,
+          onToggleEffects: () =>
+              setState(() => _effectsVisible = !_effectsVisible),
           onToggle: _togglePlayback,
           onSeek: _seek,
         ),
-        effects: AudioEqualizerPanel(
-          gains: _equalizerGains,
-          busy: _equalizerBusy,
-          onChanged: _applyEqualizer,
-        ),
+        effects: _effectsVisible
+            ? AudioEqualizerPanel(
+                gains: _equalizerGains,
+                busy: _equalizerBusy,
+                onChanged: _applyEqualizer,
+              )
+            : null,
       ),
     );
   }
@@ -304,7 +310,8 @@ class _PlaybackControls extends StatefulWidget {
     required this.duration,
     required this.isEditing,
     required this.onEdit,
-    required this.onShare,
+    required this.effectsVisible,
+    required this.onToggleEffects,
     required this.onToggle,
     required this.onSeek,
   });
@@ -314,7 +321,8 @@ class _PlaybackControls extends StatefulWidget {
   final Duration? duration;
   final bool isEditing;
   final VoidCallback onEdit;
-  final VoidCallback onShare;
+  final bool effectsVisible;
+  final VoidCallback onToggleEffects;
   final VoidCallback onToggle;
   final ValueChanged<Duration> onSeek;
 
@@ -452,16 +460,9 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                   ),
                 ),
               ),
-              trailing: IconButton(
-                tooltip: 'Share recording',
-                onPressed: isBusy || widget.isEditing ? null : widget.onShare,
-                constraints: const BoxConstraints.tightFor(
-                  width: 36,
-                  height: 36,
-                ),
-                padding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.ios_share_rounded, size: 18),
+              trailing: AudioEffectButton(
+                visible: widget.effectsVisible,
+                onPressed: widget.isEditing ? null : widget.onToggleEffects,
               ),
             ),
           ],
