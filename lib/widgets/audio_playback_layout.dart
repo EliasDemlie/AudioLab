@@ -6,12 +6,14 @@ class AudioPlaybackLayout extends StatelessWidget {
     required this.title,
     required this.waveformBuilder,
     required this.controls,
+    required this.effectButton,
     this.effects,
   });
 
   final String title;
   final Widget Function(double height) waveformBuilder;
   final Widget controls;
+  final Widget effectButton;
   final Widget? effects;
 
   static bool isCompact(BuildContext context) =>
@@ -22,40 +24,85 @@ class AudioPlaybackLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = isCompact(context);
     return SafeArea(
       top: false,
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              24,
-              compact ? 8 : 10,
-              24,
-              compact ? 12 : 24,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                waveformBuilder(compact ? 64 : 124),
-                SizedBox(height: compact ? 8 : 14),
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
+          child: Column(
+            children: [
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxHeight < 520;
+                    final topPadding = compact ? 8.0 : 20.0;
+                    final bottomPadding = compact ? 12.0 : 20.0;
+                    final contentHeight =
+                        (constraints.maxHeight - topPadding - bottomPadding)
+                            .clamp(0.0, double.infinity);
+                    final waveformHeight =
+                        (contentHeight * (effects == null ? 0.52 : 0.22)).clamp(
+                          64.0,
+                          effects == null ? 320.0 : 160.0,
+                        );
+
+                    return SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        topPadding,
+                        24,
+                        bottomPadding,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: contentHeight),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            waveformBuilder(waveformHeight),
+                            Padding(
+                              padding: EdgeInsets.only(top: compact ? 12 : 24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  SizedBox(height: compact ? 2 : 4),
+                                  controls,
+                                ],
+                              ),
+                            ),
+                            if (effects != null)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: compact ? 20 : 28,
+                                ),
+                                child: effects,
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                SizedBox(height: compact ? 2 : 4),
-                controls,
-                if (effects != null) ...[
-                  SizedBox(height: controlSpacing(context)),
-                  effects!,
-                ],
-              ],
-            ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                child: effectButton,
+              ),
+            ],
           ),
         ),
       ),

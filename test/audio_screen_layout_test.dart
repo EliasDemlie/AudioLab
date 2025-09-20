@@ -14,15 +14,24 @@ import 'package:voicerec/widgets/circular_eq_dial.dart';
 
 void main() {
   for (final brightness in Brightness.values) {
-    for (final viewport in [const Size(390, 844), const Size(320, 568)]) {
+    for (final (viewport, bottomInset) in [
+      (const Size(390, 844), 0.0),
+      (const Size(320, 568), 0.0),
+      (const Size(430, 932), 0.0),
+      (const Size(390, 844), 34.0),
+    ]) {
       for (final effectsVisible in [false, true]) {
         testWidgets(
-          'opening the editor preserves controls in $brightness at $viewport with effects $effectsVisible',
+          'opening the editor preserves controls in $brightness at $viewport with effects $effectsVisible and bottom inset $bottomInset',
           (tester) async {
             tester.view.devicePixelRatio = 1;
             tester.view.physicalSize = viewport;
+            tester.view.padding = FakeViewPadding(bottom: bottomInset);
+            tester.view.viewPadding = FakeViewPadding(bottom: bottomInset);
             addTearDown(tester.view.resetDevicePixelRatio);
             addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetPadding);
+            addTearDown(tester.view.resetViewPadding);
             final controller = RecorderController(service: _LayoutService());
             addTearDown(controller.dispose);
             await tester.pumpWidget(
@@ -41,10 +50,20 @@ void main() {
 
             _expectBackArrow('Back to library');
             expect(find.byType(CircularEqDial), findsNothing);
+            final playerEffect = _expectBottomEffectButton(
+              tester,
+              viewport,
+              bottomInset,
+            );
             if (effectsVisible) {
               await tester.tap(find.byTooltip('Show effects'));
               await tester.pumpAndSettle();
               _expectDialSpacing(tester);
+              expect(
+                _expectBottomEffectButton(tester, viewport, bottomInset),
+                playerEffect,
+                reason: 'Showing effects must preserve the bottom button',
+              );
             }
             final player = _sharedControlRects(
               tester,
@@ -52,20 +71,39 @@ void main() {
               effectsVisible: effectsVisible,
             );
             expect(player['play']!.center.dx, closeTo(viewport.width / 2, 1));
+            _expectAvailableHeightUsed(
+              player,
+              viewport,
+              effectsVisible: effectsVisible,
+            );
             await tester.tap(find.text('Edit'));
             await tester.pumpAndSettle();
 
             expect(find.byType(AudioEditorScreen), findsOneWidget);
             _expectBackArrow('Back to player');
             expect(find.byType(CircularEqDial), findsNothing);
+            final editorEffect = _expectBottomEffectButton(
+              tester,
+              viewport,
+              bottomInset,
+            );
             if (effectsVisible) {
               await tester.tap(find.byTooltip('Show effects'));
               await tester.pumpAndSettle();
               _expectDialSpacing(tester);
+              expect(
+                _expectBottomEffectButton(tester, viewport, bottomInset),
+                editorEffect,
+              );
             }
             final editor = _sharedControlRects(
               tester,
               editing: true,
+              effectsVisible: effectsVisible,
+            );
+            _expectAvailableHeightUsed(
+              editor,
+              viewport,
               effectsVisible: effectsVisible,
             );
             for (final entry in player.entries) {
@@ -90,6 +128,22 @@ void main() {
             }
             expect(tester.takeException(), isNull);
 
+            if (effectsVisible) {
+              final lastDial = find.byType(CircularEqDial).last;
+              await tester.ensureVisible(lastDial);
+              await tester.pumpAndSettle();
+              expect(
+                _expectBottomEffectButton(tester, viewport, bottomInset),
+                editorEffect,
+                reason: 'Scrolling the effects must preserve the bottom button',
+              );
+              expect(
+                tester.getRect(lastDial).bottom,
+                lessThanOrEqualTo(editorEffect.top),
+                reason: 'All effect dials must be reachable above the footer',
+              );
+            }
+
             await tester.tap(find.byTooltip('Back to player'));
             await tester.pumpAndSettle();
             expect(find.byType(AudioEditorScreen), findsNothing);
@@ -105,6 +159,47 @@ void main() {
         );
       }
     }
+  }
+}
+
+Rect _expectBottomEffectButton(
+  WidgetTester tester,
+  Size viewport,
+  double bottomInset,
+) {
+  final button = find.widgetWithText(TextButton, 'Effect');
+  expect(button.hitTestable(), findsOneWidget);
+  final bounds = tester.getRect(button);
+  final safeBottom = viewport.height - bottomInset;
+  expect(bounds.center.dx, closeTo(viewport.width / 2, 1));
+  expect(bounds.bottom, inInclusiveRange(safeBottom - 32, safeBottom));
+  return bounds;
+}
+
+void _expectAvailableHeightUsed(
+  Map<String, Rect> controls,
+  Size viewport, {
+  required bool effectsVisible,
+}) {
+  if (viewport.height < 844) return;
+  final footer = controls['effect button']!;
+  if (effectsVisible) {
+    expect(
+      controls['Treble knob']!.bottom,
+      inInclusiveRange(footer.top - 64, footer.top),
+      reason: 'The effects panel should extend into the lower available space',
+    );
+  } else {
+    expect(
+      controls['waveform']!.height,
+      greaterThan(124),
+      reason: 'The waveform should expand into the available screen height',
+    );
+    expect(
+      controls['play']!.bottom,
+      inInclusiveRange(footer.top - 48, footer.top),
+      reason: 'Playback controls should use the lower available screen space',
+    );
   }
 }
 
