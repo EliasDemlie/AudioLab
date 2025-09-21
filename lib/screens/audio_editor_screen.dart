@@ -482,15 +482,15 @@ class _AudioEditorScreenState extends State<AudioEditorScreen> {
                       : null,
                   icon: Icons.restart_alt_rounded,
                 ),
-                trailing: AudioEffectButton(
-                  visible: _effectsVisible,
-                  onPressed: _saving
-                      ? null
-                      : () =>
-                            setState(() => _effectsVisible = !_effectsVisible),
-                ),
+                trailing: const SizedBox.shrink(),
               ),
             ],
+          ),
+          effectButton: AudioEffectButton(
+            visible: _effectsVisible,
+            onPressed: _saving
+                ? null
+                : () => setState(() => _effectsVisible = !_effectsVisible),
           ),
           effects: _effectsVisible
               ? AudioEqualizerPanel(

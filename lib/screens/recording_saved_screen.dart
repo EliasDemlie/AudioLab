@@ -285,11 +285,14 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
           duration: _recording.duration,
           isEditing: _editing,
           onEdit: _editAudio,
-          effectsVisible: _effectsVisible,
-          onToggleEffects: () =>
-              setState(() => _effectsVisible = !_effectsVisible),
           onToggle: _togglePlayback,
           onSeek: _seek,
+        ),
+        effectButton: AudioEffectButton(
+          visible: _effectsVisible,
+          onPressed: _editing
+              ? null
+              : () => setState(() => _effectsVisible = !_effectsVisible),
         ),
         effects: _effectsVisible
             ? AudioEqualizerPanel(
@@ -310,8 +313,6 @@ class _PlaybackControls extends StatefulWidget {
     required this.duration,
     required this.isEditing,
     required this.onEdit,
-    required this.effectsVisible,
-    required this.onToggleEffects,
     required this.onToggle,
     required this.onSeek,
   });
@@ -321,8 +322,6 @@ class _PlaybackControls extends StatefulWidget {
   final Duration? duration;
   final bool isEditing;
   final VoidCallback onEdit;
-  final bool effectsVisible;
-  final VoidCallback onToggleEffects;
   final VoidCallback onToggle;
   final ValueChanged<Duration> onSeek;
 
@@ -460,10 +459,7 @@ class _PlaybackControlsState extends State<_PlaybackControls> {
                   ),
                 ),
               ),
-              trailing: AudioEffectButton(
-                visible: widget.effectsVisible,
-                onPressed: widget.isEditing ? null : widget.onToggleEffects,
-              ),
+              trailing: const SizedBox.shrink(),
             ),
           ],
         );
