@@ -91,14 +91,19 @@ class _CircularEqDialState extends State<CircularEqDial> {
     final colors = theme.colorScheme;
     final dark = theme.brightness == Brightness.dark;
     final faceHighlight = Color.lerp(
-      dark ? colors.surfaceContainerHigh : colors.surface,
-      dark ? colors.onSurface : Colors.white,
-      dark ? 0.13 : 0.75,
+      colors.surfaceContainerHigh,
+      colors.onSurface,
+      0.13,
     )!;
     final faceShadow = Color.lerp(
-      dark ? colors.surfaceContainerHigh : colors.surface,
-      dark ? Colors.black : colors.primary,
-      dark ? 0.3 : 0.08,
+      colors.surfaceContainerHigh,
+      Colors.black,
+      0.3,
+    )!;
+    final lightFace = Color.lerp(
+      colors.surface,
+      colors.primaryContainer,
+      0.55,
     )!;
 
     return Semantics(
@@ -168,50 +173,61 @@ class _CircularEqDialState extends State<CircularEqDial> {
                             padding: EdgeInsets.all(size * 0.026),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color.lerp(
-                                    faceHighlight,
-                                    Colors.white,
-                                    0.25,
-                                  )!,
-                                  faceShadow,
-                                  Color.lerp(
-                                    faceShadow,
-                                    dark ? Colors.black : colors.primary,
-                                    dark ? 0.35 : 0.1,
-                                  )!,
-                                ],
-                                stops: const [0, 0.52, 1],
-                              ),
+                              color: dark ? null : colors.primaryContainer,
+                              gradient: dark
+                                  ? LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color.lerp(
+                                          faceHighlight,
+                                          Colors.white,
+                                          0.25,
+                                        )!,
+                                        faceShadow,
+                                        Color.lerp(
+                                          faceShadow,
+                                          Colors.black,
+                                          0.35,
+                                        )!,
+                                      ],
+                                      stops: const [0, 0.52, 1],
+                                    )
+                                  : null,
                               boxShadow: [
                                 BoxShadow(
                                   color:
                                       (dark ? Colors.black : colors.onSurface)
-                                          .withValues(alpha: dark ? 0.6 : 0.08),
-                                  blurRadius: size * 0.09,
-                                  offset: Offset(0, size * 0.055),
-                                ),
-                                BoxShadow(
-                                  color: Colors.white.withValues(
-                                    alpha: dark ? 0.07 : 0.8,
+                                          .withValues(alpha: dark ? 0.6 : 0.06),
+                                  blurRadius: size * (dark ? 0.09 : 0.04),
+                                  offset: Offset(
+                                    0,
+                                    size * (dark ? 0.055 : 0.025),
                                   ),
-                                  blurRadius: size * 0.035,
-                                  offset: Offset(-size * 0.018, -size * 0.018),
                                 ),
+                                if (dark)
+                                  BoxShadow(
+                                    color: Colors.white.withValues(alpha: 0.07),
+                                    blurRadius: size * 0.035,
+                                    offset: Offset(
+                                      -size * 0.018,
+                                      -size * 0.018,
+                                    ),
+                                  ),
                               ],
                             ),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 120),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [faceHighlight, faceShadow],
-                                ),
+                                color: dark ? null : lightFace,
+                                gradient: dark
+                                    ? LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [faceHighlight, faceShadow],
+                                      )
+                                    : null,
                                 border: Border.all(
                                   color: _dragging
                                       ? colors.primary.withValues(alpha: 0.7)
@@ -236,13 +252,17 @@ class _CircularEqDialState extends State<CircularEqDial> {
                                             borderRadius: BorderRadius.circular(
                                               4,
                                             ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: colors.primary
-                                                    .withValues(alpha: 0.4),
-                                                blurRadius: 7,
-                                              ),
-                                            ],
+                                            boxShadow: dark
+                                                ? [
+                                                    BoxShadow(
+                                                      color: colors.primary
+                                                          .withValues(
+                                                            alpha: 0.4,
+                                                          ),
+                                                      blurRadius: 7,
+                                                    ),
+                                                  ]
+                                                : null,
                                           ),
                                         ),
                                       ),

@@ -14,7 +14,7 @@ class AudioEffectButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return SizedBox(
-      width: double.infinity,
+      width: 64,
       child: Semantics(
         toggled: visible,
         child: Tooltip(
@@ -22,8 +22,8 @@ class AudioEffectButton extends StatelessWidget {
           child: TextButton(
             onPressed: onPressed,
             style: TextButton.styleFrom(
-              minimumSize: const Size(0, 52),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              minimumSize: const Size(0, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               backgroundColor: visible
                   ? colors.primary.withValues(alpha: 0.12)
@@ -33,7 +33,10 @@ class AudioEffectButton extends StatelessWidget {
                 color: colors.primary.withValues(alpha: visible ? 0.3 : 0.12),
               ),
             ),
-            child: const Text('Effect', maxLines: 1, softWrap: false),
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Effect', maxLines: 1, softWrap: false),
+            ),
           ),
         ),
       ),
