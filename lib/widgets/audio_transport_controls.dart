@@ -32,7 +32,9 @@ class AudioTransportControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     return Row(
       children: [
         Expanded(
@@ -57,14 +59,17 @@ class AudioTransportControls extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  colors.primary,
-                  Color.lerp(colors.primary, colors.tertiary, 0.3)!,
-                ],
-              ),
+              color: dark ? null : colors.primary,
+              gradient: dark
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        colors.primary,
+                        Color.lerp(colors.primary, colors.tertiary, 0.3)!,
+                      ],
+                    )
+                  : null,
             ),
             child: SizedBox.square(
               dimension: 56,
