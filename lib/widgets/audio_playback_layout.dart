@@ -74,36 +74,16 @@ class AudioPlaybackLayout extends StatelessWidget {
                     child: Visibility(
                       visible: effectsVisible,
                       maintainState: true,
-                      child: LayoutBuilder(
-                        builder: (context, effectConstraints) {
-                          final topPadding = compact ? 12.0 : 20.0;
-                          final bottomPadding = compact ? 12.0 : 24.0;
-                          return SingleChildScrollView(
-                            key: const ValueKey('audio-playback-effects'),
-                            primary: false,
-                            padding: EdgeInsets.fromLTRB(
-                              24,
-                              topPadding,
-                              24,
-                              bottomPadding,
-                            ),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight:
-                                    (effectConstraints.maxHeight -
-                                            topPadding -
-                                            bottomPadding)
-                                        .clamp(0.0, double.infinity),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [effects],
-                              ),
-                            ),
-                          );
-                        },
+                      child: SingleChildScrollView(
+                        key: const ValueKey('audio-playback-effects'),
+                        primary: false,
+                        padding: EdgeInsets.fromLTRB(
+                          24,
+                          8,
+                          24,
+                          compact ? 12 : 24,
+                        ),
+                        child: effects,
                       ),
                     ),
                   ),
