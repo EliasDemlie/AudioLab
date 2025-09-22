@@ -17,24 +17,37 @@ abstract final class VoiceRecTheme {
   static ThemeData get light {
     final colors =
         ColorScheme.fromSeed(
-          seedColor: const Color(0xFF087D79),
+          seedColor: const Color(0xFF5554A6),
           brightness: Brightness.light,
         ).copyWith(
-          primary: const Color(0xFF087D79),
+          primary: const Color(0xFF5554A6),
           onPrimary: Colors.white,
-          primaryContainer: const Color(0xFFC6F1E8),
-          onPrimaryContainer: const Color(0xFF084D49),
-          secondary: const Color(0xFF5B67AB),
-          surface: const Color(0xFFF3FAF8),
-          onSurface: const Color(0xFF193B3A),
-          onSurfaceVariant: const Color(0xFF526E6B),
+          primaryContainer: const Color(0xFFE8E3FA),
+          onPrimaryContainer: const Color(0xFF35316D),
+          secondary: const Color(0xFF546A8B),
+          onSecondary: Colors.white,
+          secondaryContainer: const Color(0xFFDFE6F1),
+          onSecondaryContainer: const Color(0xFF263B57),
+          tertiary: const Color(0xFF9A5C73),
+          onTertiary: Colors.white,
+          tertiaryContainer: const Color(0xFFF3DFE6),
+          onTertiaryContainer: const Color(0xFF5C293E),
+          surface: const Color(0xFFF7F4EF),
+          onSurface: const Color(0xFF2D2B40),
+          onSurfaceVariant: const Color(0xFF686375),
+          surfaceBright: const Color(0xFFFFFBF6),
+          surfaceDim: const Color(0xFFE7E1DF),
           surfaceContainerLowest: Colors.white,
-          surfaceContainerLow: const Color(0xFFF1F9F6),
-          surfaceContainer: const Color(0xFFE9F4F0),
-          surfaceContainerHigh: const Color(0xFFE1F0EB),
-          surfaceContainerHighest: const Color(0xFFD7EAE4),
-          outline: const Color(0xFF91AEA8),
-          outlineVariant: const Color(0xFFC5DCD5),
+          surfaceContainerLow: const Color(0xFFFBF8F4),
+          surfaceContainer: const Color(0xFFF3EFF4),
+          surfaceContainerHigh: const Color(0xFFEEE9F2),
+          surfaceContainerHighest: const Color(0xFFE5DFEB),
+          outline: const Color(0xFFA7A0B6),
+          outlineVariant: const Color(0xFFD8D1E0),
+          inverseSurface: const Color(0xFF332F40),
+          onInverseSurface: const Color(0xFFF9F4FF),
+          inversePrimary: const Color(0xFFC5BFFC),
+          surfaceTint: const Color(0xFF5554A6),
         );
     return ThemeData(
       useMaterial3: true,
@@ -49,7 +62,7 @@ abstract final class VoiceRecTheme {
         surfaceTintColor: Colors.transparent,
         systemOverlayStyle: SystemUiOverlayStyle.dark.copyWith(
           statusBarColor: Colors.transparent,
-          systemNavigationBarColor: const Color(0xFFF1F9F6),
+          systemNavigationBarColor: const Color(0xFFF7F4EF),
         ),
       ),
       cardTheme: CardThemeData(
@@ -58,7 +71,7 @@ abstract final class VoiceRecTheme {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.9)),
+          side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.6)),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -155,16 +168,10 @@ class VoiceRecBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: dark
-              ? const [Color(0xFF061322), Color(0xFF061322)]
-              : const [Color(0xFFE0F4ED), Color(0xFFF8FCFA), Color(0xFFE8EEF9)],
-        ),
-      ),
+    return ColoredBox(
+      color: dark
+          ? const Color(0xFF061322)
+          : Theme.of(context).colorScheme.surface,
       child: child,
     );
   }
