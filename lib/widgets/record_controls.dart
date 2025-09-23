@@ -39,39 +39,38 @@ class RecordControls extends StatelessWidget {
     if (status == RecorderStatus.idle || status == RecorderStatus.stopping) {
       content = Center(
         key: const ValueKey('idle-controls'),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox.square(
-              dimension: 92,
-              child: IconButton.filled(
-                tooltip: 'Record',
-                onPressed: status == RecorderStatus.idle && !isBusy && !isLocked
-                    ? onStart
-                    : null,
-                icon: const Icon(Icons.mic_rounded, size: 38),
-                style: IconButton.styleFrom(
-                  shape: const CircleBorder(),
-                  backgroundColor: colors.primary,
-                  foregroundColor: colors.onPrimary,
-                  disabledBackgroundColor: colors.primary,
-                  disabledForegroundColor: colors.onPrimary,
-                ),
-              ),
+        child: SizedBox.square(
+          key: const ValueKey('recorder-primary-control'),
+          dimension: 112,
+          child: IconButton.filled(
+            tooltip: 'Record',
+            onPressed: status == RecorderStatus.idle && !isBusy && !isLocked
+                ? onStart
+                : null,
+            icon: isBusy || status == RecorderStatus.stopping
+                ? SizedBox.square(
+                    dimension: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.onPrimary,
+                    ),
+                  )
+                : const Icon(Icons.mic_rounded, size: 42),
+            style: IconButton.styleFrom(
+              shape: const CircleBorder(),
+              backgroundColor: colors.primary,
+              foregroundColor: colors.onPrimary,
+              disabledBackgroundColor: colors.primary,
+              disabledForegroundColor: colors.onPrimary,
             ),
-            const SizedBox(height: 6),
-            Text(
-              status == RecorderStatus.stopping ? 'Saving…' : 'Record',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-          ],
+          ),
         ),
       );
     } else {
       content = SizedBox(
         key: const ValueKey('active-controls'),
         width: double.infinity,
-        height: 112,
+        height: 136,
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -98,11 +97,34 @@ class RecordControls extends StatelessWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      child: content,
+    return SizedBox(
+      height: 136,
+      width: double.infinity,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          IgnorePointer(
+            child: SizedBox.square(
+              dimension: 136,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.primary.withValues(alpha: dark ? 0.04 : 0.035),
+                  border: Border.all(
+                    color: colors.primary.withValues(alpha: 0.14),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: content,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -166,66 +188,74 @@ class _RecordingMicIndicator extends StatelessWidget {
         : isRecording
         ? colors.onPrimary
         : colors.primary;
-    return Semantics(
-      button: true,
-      label: isRecording ? 'Pause recording' : 'Resume recording',
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            width: 112,
-            height: 112,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: dark
-                  ? null
-                  : isRecording
-                  ? colors.primary
-                  : colors.primaryContainer,
-              gradient: dark
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: isRecording
-                          ? const [Color(0xFF28E3D0), Color(0xFF00B7B8)]
-                          : const [Color(0xFF164A5A), Color(0xFF10384D)],
-                    )
-                  : null,
-              border: dark
-                  ? null
-                  : Border.all(color: colors.primary.withValues(alpha: 0.12)),
-              boxShadow: isRecording
-                  ? [
-                      BoxShadow(
-                        color: (dark ? const Color(0xFF00D5C6) : colors.primary)
-                            .withValues(alpha: dark ? 0.24 : 0.14),
-                        blurRadius: 26,
-                        spreadRadius: 2,
-                      ),
-                    ]
-                  : const [],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  isRecording ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: foreground,
-                  size: 48,
-                ),
-                if (isBusy && !isStopPending)
-                  SizedBox.square(
-                    dimension: 82,
-                    child: CircularProgressIndicator(
-                      color: foreground.withValues(alpha: 0.7),
-                      strokeWidth: 2,
-                    ),
+    return Tooltip(
+      message: isRecording ? 'Pause recording' : 'Resume recording',
+      excludeFromSemantics: true,
+      child: Semantics(
+        button: true,
+        label: isRecording ? 'Pause recording' : 'Resume recording',
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onPressed,
+            customBorder: const CircleBorder(),
+            child: AnimatedContainer(
+              key: const ValueKey('recorder-primary-control'),
+              duration: const Duration(milliseconds: 250),
+              width: 112,
+              height: 112,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: dark
+                    ? null
+                    : isRecording
+                    ? colors.primary
+                    : colors.primaryContainer,
+                gradient: dark
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isRecording
+                            ? const [Color(0xFF28E3D0), Color(0xFF00B7B8)]
+                            : const [Color(0xFF164A5A), Color(0xFF10384D)],
+                      )
+                    : null,
+                border: dark
+                    ? null
+                    : Border.all(color: colors.primary.withValues(alpha: 0.12)),
+                boxShadow: isRecording
+                    ? [
+                        BoxShadow(
+                          color:
+                              (dark ? const Color(0xFF00D5C6) : colors.primary)
+                                  .withValues(alpha: dark ? 0.24 : 0.14),
+                          blurRadius: 26,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : const [],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    isRecording
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    color: foreground,
+                    size: 48,
                   ),
-              ],
+                  if (isBusy && !isStopPending)
+                    SizedBox.square(
+                      dimension: 82,
+                      child: CircularProgressIndicator(
+                        color: foreground.withValues(alpha: 0.7),
+                        strokeWidth: 2,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
