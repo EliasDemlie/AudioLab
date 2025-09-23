@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
-import com.example.voicerec.backup.TelegramBackup
 import com.example.voicerec.contacts.ContactsBackup
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -84,7 +83,6 @@ class RecorderChannel(
 
         if (isGranted(Manifest.permission.RECORD_AUDIO)) {
             RecordingService.start(activity)
-            backUpContactsIfAllowed()
             result.success(null)
         } else {
             result.error("PERMISSION_DENIED", "Microphone permission is required to record.", null)
@@ -100,7 +98,6 @@ class RecorderChannel(
         val missing = requiredPermissions().filterNot(::isGranted)
         if (missing.isEmpty()) {
             RecordingService.start(activity)
-            backUpContactsIfAllowed()
             result.success(null)
             return
         }
@@ -110,34 +107,17 @@ class RecorderChannel(
     }
 
     /**
-     * Snapshots contacts to a `.vcf` when a recording starts, if the user has
-     * granted contacts access. Exports only when contacts aren't already backed
-     * up, and runs off the main thread; a denied permission is simply skipped,
-     * so it never blocks or delays recording.
-     */
-    private fun backUpContactsIfAllowed() {
-        if (isGranted(Manifest.permission.READ_CONTACTS)) {
-            ContactsBackup.ensureBackedUp(activity.applicationContext)
-        }
-    }
-
-    /**
-     * Recovers interrupted recordings, then lists all of them with their
-     * Telegram backup status, off the main thread.
+     * Recovers interrupted recordings, then lists recordings and local contact
+     * backups off the main thread.
      */
     private fun listRecordings(result: MethodChannel.Result) {
-        val context = activity.applicationContext
         RecordingFiles.io.execute {
             val state = RecordingService.state
             val activePath = if (state.isActive) state.filePath else null
             val recordings = try {
                 RecordingFiles.recoverInterrupted(context, activePath)
-                // Queue any contacts backup that exists on disk but was never queued.
-                ContactsBackup.enqueuePending(context)
-                val uploads = TelegramBackup.uploadsByPath(context)
                 (RecordingFiles.list(context, activePath) + ContactsBackup.list(context))
                     .sortedByDescending { it["modifiedAtMillis"] as Long }
-                    .map { it + ("upload" to uploads[it["path"]]) }
             } catch (e: Exception) {
                 activity.runOnUiThread { result.error("LIST_FAILED", e.message, null) }
                 return@execute
@@ -146,7 +126,7 @@ class RecorderChannel(
         }
     }
 
-    /** Deletes a recording at the user's request and cancels its pending upload. */
+    /** Deletes a saved recording or contact backup at the user's request. */
     private fun deleteRecording(path: String?, result: MethodChannel.Result) {
         if (path == null) {
             result.error("BAD_ARGS", "Missing path", null)
@@ -155,7 +135,6 @@ class RecorderChannel(
         val context = activity.applicationContext
         RecordingFiles.io.execute {
             val file = File(path)
-            TelegramBackup.forget(context, file)
             val deleted = !file.exists() || file.delete()
             activity.runOnUiThread {
                 if (deleted) result.success(null) else result.error("DELETE_FAILED", "Could not delete file", null)
@@ -169,9 +148,6 @@ class RecorderChannel(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        // Optional: lets the app snapshot contacts to a .vcf alongside recordings.
-        // Recording still proceeds if the user denies it.
-        add(Manifest.permission.READ_CONTACTS)
     }
 
     private fun isGranted(permission: String): Boolean =

@@ -12,8 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 /**
  * Bridge between Flutter and [ContactsBackup].
  *
- * Methods: `getState`, `backUpNow`, `retryUpload`, `openAppSettings`.
- * Upload progress arrives on the existing backup event channel.
+ * Methods: `getState`, `backUpNow`, `openAppSettings`.
  */
 class ContactsChannel(
     private val activity: Activity,
@@ -38,7 +37,6 @@ class ContactsChannel(
         when (call.method) {
             "getState" -> result.success(ContactsBackup.state(activity))
             "backUpNow" -> backUpNow(result)
-            "retryUpload" -> result.success(ContactsBackup.retryLatest(activity))
             "openAppSettings" -> {
                 activity.startActivity(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
@@ -84,7 +82,7 @@ class ContactsChannel(
         ContactsBackup.backUpNow(activity) { outcome ->
             activity.runOnUiThread {
                 when (outcome) {
-                    is ContactsBackup.Result.Queued -> result.success(mapOf("contactCount" to outcome.contactCount))
+                    is ContactsBackup.Result.Saved -> result.success(mapOf("contactCount" to outcome.contactCount))
                     is ContactsBackup.Result.Error -> result.error(outcome.code, outcome.message, null)
                 }
             }

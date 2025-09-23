@@ -5,34 +5,25 @@ import 'package:flutter/services.dart';
 
 import '../models/recorder_state.dart';
 import '../models/recording.dart';
-import '../models/upload_status.dart';
-import '../services/backup_service.dart';
 import '../services/recorder_service.dart';
 
 /// Holds the recorder UI state and turns user actions into service calls.
 ///
 /// The native service is the source of truth; this only mirrors it.
 class RecorderController extends ChangeNotifier {
-  RecorderController({RecorderService? service, BackupService? backup})
-    : _service = service ?? RecorderService(),
-      _backup = backup ?? BackupService();
+  RecorderController({RecorderService? service})
+    : _service = service ?? RecorderService();
 
   final RecorderService _service;
-  final BackupService _backup;
   final _errors = StreamController<String>.broadcast();
 
   StreamSubscription<RecorderState>? _stateSub;
-  StreamSubscription<UploadStatus>? _uploadSub;
   Timer? _ticker;
   bool _disposed = false;
 
   RecorderState _state = const RecorderState.idle();
   List<Recording> _recordings = const [];
   bool _isBusy = false;
-  bool _backupConfigured = false;
-
-  /// Whether a Telegram bot token and channel were provided at build time.
-  bool get backupConfigured => _backupConfigured;
 
   RecorderStatus get status => _state.status;
   bool get isActive => _state.isActive;
@@ -58,12 +49,6 @@ class RecorderController extends ChangeNotifier {
       _onState,
       onError: (Object e) => _errors.add('Recorder error: $e'),
     );
-    _uploadSub = _backup.updates.listen(_onUpload);
-    try {
-      _backupConfigured = await _backup.isConfigured();
-    } on PlatformException {
-      _backupConfigured = false;
-    }
     await refreshRecordings();
   }
 
@@ -97,24 +82,6 @@ class RecorderController extends ChangeNotifier {
     } on PlatformException catch (e) {
       _errors.add(e.message ?? 'Could not share recording');
     }
-  }
-
-  Future<void> retryUpload(Recording recording) async {
-    try {
-      await _backup.retry(recording);
-    } on PlatformException catch (e) {
-      _errors.add(e.message ?? 'Could not retry upload');
-    }
-  }
-
-  /// Applies a live upload update to the matching recording.
-  void _onUpload(UploadStatus upload) {
-    if (_disposed) return;
-    final index = _recordings.indexWhere((r) => r.file.path == upload.filePath);
-    if (index < 0) return;
-    _recordings = [..._recordings]
-      ..[index] = _recordings[index].copyWith(upload: upload);
-    notifyListeners();
   }
 
   void _onState(RecorderState state) {
@@ -159,7 +126,6 @@ class RecorderController extends ChangeNotifier {
     // Only the UI goes away here; the native service keeps recording.
     _disposed = true;
     _stateSub?.cancel();
-    _uploadSub?.cancel();
     _ticker?.cancel();
     _errors.close();
     super.dispose();

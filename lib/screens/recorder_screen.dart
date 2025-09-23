@@ -121,8 +121,6 @@ class _RecorderScreenState extends State<RecorderScreen> {
                   recordings: _controller.recordings,
                   onShare: _controller.share,
                   onDelete: _confirmDelete,
-                  onRetryUpload: _controller.retryUpload,
-                  showBackup: _controller.backupConfigured,
                 ),
               ),
             ],

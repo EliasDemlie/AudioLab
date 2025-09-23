@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../controllers/contacts_backup_controller.dart';
 import '../models/contacts_backup_state.dart';
-import '../models/upload_status.dart';
 import '../utils/formatters.dart';
 
 class ContactsBackupScreen extends StatefulWidget {
@@ -62,43 +61,34 @@ class _ContactsBackupScreenState extends State<ContactsBackupScreen>
               children: [
                 const _PrivacyNotice(),
                 const SizedBox(height: 16),
-                _StatusCard(state: state, onRetry: _controller.retryUpload),
+                _StatusCard(state: state),
                 const SizedBox(height: 24),
-                if (!state.configured)
-                  const _Hint(
-                    icon: Icons.info_outline,
-                    text:
-                        'Telegram backup is not configured in this build, '
-                        'so contacts can\'t be backed up.',
-                  )
-                else ...[
-                  FilledButton.icon(
-                    onPressed: _controller.isExporting || state.isBusy
-                        ? null
-                        : _controller.backUpNow,
-                    icon: _controller.isExporting
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.backup_outlined),
-                    label: Text(
-                      _controller.isExporting
-                          ? 'Exporting contacts…'
-                          : 'Back Up Contacts Now',
-                    ),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
-                    ),
+                FilledButton.icon(
+                  onPressed: _controller.isExporting
+                      ? null
+                      : _controller.backUpNow,
+                  icon: _controller.isExporting
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.backup_outlined),
+                  label: Text(
+                    _controller.isExporting
+                        ? 'Saving contacts…'
+                        : 'Save Contacts to Device',
                   ),
-                  if (_controller.permanentlyDenied) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _controller.openAppSettings,
-                      icon: const Icon(Icons.settings_outlined),
-                      label: const Text('Open Settings to allow contacts'),
-                    ),
-                  ],
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                ),
+                if (_controller.permanentlyDenied) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _controller.openAppSettings,
+                    icon: const Icon(Icons.settings_outlined),
+                    label: const Text('Open Settings to allow contacts'),
+                  ),
                 ],
               ],
             );
@@ -133,11 +123,10 @@ class _PrivacyNotice extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Your contacts are exported to a .vcf file and uploaded to the '
-              'Telegram chat configured for this app. Anyone who can see that '
-              'chat can see your contacts.\n\n'
+              'Your contacts are exported to a .vcf file stored on this device. '
+              'You can find it in the recordings list and share it yourself.\n\n'
               'Only names, phone numbers, email addresses and organization are '
-              'included. Nothing is read or uploaded until you tap the button, '
+              'included. Nothing is read or saved until you tap the button, '
               'and the app asks for contacts permission at that moment.',
             ),
           ],
@@ -148,17 +137,14 @@ class _PrivacyNotice extends StatelessWidget {
 }
 
 class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.state, required this.onRetry});
+  const _StatusCard({required this.state});
 
   final ContactsBackupState state;
-  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final latest = state.latest;
-    final lastSuccess = state.lastSuccessAt;
+    final latestAt = state.latestAt;
 
     return Card.filled(
       child: Padding(
@@ -166,58 +152,18 @@ class _StatusCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Last successful backup', style: theme.textTheme.labelLarge),
+            Text('Latest local backup', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
             Text(
-              lastSuccess == null ? 'Never' : formatDateTime(lastSuccess),
+              latestAt == null ? 'None yet' : formatDateTime(latestAt),
               style: theme.textTheme.titleLarge,
             ),
-            if (latest != null) ...[
+            if (latestAt != null) ...[
               const Divider(height: 24),
-              Text('Latest backup', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 6),
-              switch (latest.state) {
-                UploadState.pending => _Hint(
-                  icon: Icons.cloud_queue,
-                  text: latest.error == null
-                      ? 'Waiting for a connection to upload'
-                      : 'Will retry: ${latest.error}',
-                ),
-                UploadState.uploading => Row(
-                  children: [
-                    Expanded(
-                      child: LinearProgressIndicator(
-                        value: latest.progress > 0 ? latest.progress : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text('${(latest.progress * 100).round()}%'),
-                  ],
-                ),
-                UploadState.uploaded => _Hint(
-                  icon: Icons.cloud_done,
-                  color: colors.primary,
-                  text:
-                      'Uploaded to Telegram'
-                      '${state.contactCount == null ? '' : ' · ${state.contactCount} contacts'}',
-                ),
-                UploadState.failed => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Hint(
-                      icon: Icons.cloud_off,
-                      color: colors.error,
-                      text: latest.error ?? 'Upload failed',
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry upload'),
-                    ),
-                  ],
-                ),
-              },
+              Text(
+                '${state.contactCount ?? 0} contacts saved locally',
+                style: theme.textTheme.bodyMedium,
+              ),
             ],
           ],
         ),
@@ -226,25 +172,3 @@ class _StatusCard extends StatelessWidget {
   }
 }
 
-class _Hint extends StatelessWidget {
-  const _Hint({required this.icon, required this.text, this.color});
-
-  final IconData icon;
-  final String text;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = this.color ?? Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(text, style: TextStyle(color: color)),
-        ),
-      ],
-    );
-  }
-}
