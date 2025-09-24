@@ -59,6 +59,7 @@ class RecorderChannel(
                 RecordingService.stop(activity)
                 result.success(null)
             }
+            "readPeakAmplitude" -> result.success(RecordingService.readPeakAmplitude())
             "getRecordingState" -> result.success(RecordingService.state.toMap())
             "listRecordings" -> listRecordings(result)
             "deleteRecording" -> deleteRecording(call.argument<String>("path"), result)

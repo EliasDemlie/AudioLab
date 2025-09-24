@@ -58,6 +58,7 @@ class RecordingService : Service() {
         // .aac stays valid. It is converted to .m4a on the next listing.
         recorder?.let { releaseRecorder(it) }
         recorder = null
+        activeRecorder = null
         unwatchMicrophone()
         RecentsVisibility.setHidden(this, false)
         if (state.isActive) updateState(RecorderState(error = "Recording was interrupted by the system."))
@@ -114,6 +115,7 @@ class RecordingService : Service() {
         }
 
         recorder = newRecorder
+        activeRecorder = newRecorder
         updateState(starting.copy(filePath = file.absolutePath))
         watchMicrophone()
         RecentsVisibility.setHidden(this, true)
@@ -159,6 +161,7 @@ class RecordingService : Service() {
             return
         }
         recorder = null
+        activeRecorder = null
         unwatchMicrophone()
 
         val raw = state.filePath?.let(::File)
@@ -258,6 +261,16 @@ class RecordingService : Service() {
         @Volatile
         var state = RecorderState()
             private set
+
+        @Volatile
+        private var activeRecorder: MediaRecorder? = null
+
+        /** Returns the peak level captured since the previous read. */
+        fun readPeakAmplitude(): Int = try {
+            activeRecorder?.maxAmplitude?.coerceIn(0, 32767) ?: 0
+        } catch (_: IllegalStateException) {
+            0
+        }
 
         /** Called on the main thread whenever [state] changes. */
         var listener: ((RecorderState) -> Unit)? = null
