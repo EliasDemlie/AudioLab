@@ -137,6 +137,68 @@ class UploadProcessorTest {
         assertEquals(0, sender.calls)
     }
 
+    @Test
+    fun `blocked source keeps the item pending without sending`() {
+        val sender = FakeSender(SendResult.Sent(messageId = 1, fileId = null, rawResponse = "{}"))
+        val source = FakeSource(UploadSource.Resolved.Blocked("Paused"))
+
+        val outcome = UploadProcessor(store, sender, source = source).process(ID)
+
+        assertEquals(UploadProcessor.Outcome.BLOCKED, outcome)
+        assertEquals(0, sender.calls)
+        assertEquals(UploadStatus.PENDING, store.get(ID)!!.status)
+        assertEquals("Paused", store.get(ID)!!.lastError)
+        assertEquals(0, store.get(ID)!!.attempts)
+    }
+
+    @Test
+    fun `unavailable source fails the item`() {
+        val sender = FakeSender(SendResult.Sent(messageId = 1, fileId = null, rawResponse = "{}"))
+        val source = FakeSource(UploadSource.Resolved.Unavailable("Deleted"))
+
+        assertEquals(UploadProcessor.Outcome.FAILED, UploadProcessor(store, sender, source = source).process(ID))
+        assertEquals(UploadStatus.FAILED, store.get(ID)!!.status)
+        assertEquals(0, sender.calls)
+    }
+
+    @Test
+    fun `source file is sent with its caption and released afterwards`() {
+        var released = false
+        val sender = FakeSender(SendResult.Sent(messageId = 1, fileId = null, rawResponse = "{}"))
+        val source = FakeSource(UploadSource.Resolved.Ready(file, "My caption") { released = true })
+
+        assertEquals(UploadProcessor.Outcome.DONE, UploadProcessor(store, sender, source = source).process(ID))
+        assertEquals("My caption", sender.lastCaption)
+        assertTrue(released)
+    }
+
+    @Test
+    fun `source is released even when the upload is retried`() {
+        var released = false
+        val sender = FakeSender(SendResult.Retryable("Network error"))
+        val source = FakeSource(UploadSource.Resolved.Ready(file) { released = true })
+
+        assertEquals(UploadProcessor.Outcome.RETRY, UploadProcessor(store, sender, source = source).process(ID))
+        assertTrue(released)
+    }
+
+    @Test
+    fun `source that does not handle a record leaves it on the normal path`() {
+        val sender = FakeSender(SendResult.Sent(messageId = 1, fileId = null, rawResponse = "{}"))
+        val source = FakeSource(UploadSource.Resolved.Blocked("x"), handlesAll = false)
+
+        assertEquals(UploadProcessor.Outcome.DONE, UploadProcessor(store, sender, source = source).process(ID))
+        assertEquals(1, sender.calls)
+    }
+
+    private class FakeSource(
+        private val resolved: UploadSource.Resolved,
+        private val handlesAll: Boolean = true,
+    ) : UploadSource {
+        override fun handles(record: UploadRecord) = handlesAll
+        override fun open(record: UploadRecord) = resolved
+    }
+
     private companion object {
         const val ID = "rec_20261012_120000"
     }
@@ -144,9 +206,11 @@ class UploadProcessorTest {
     private class FakeSender(vararg results: SendResult) : DocumentSender {
         private val queue = ArrayDeque(results.toList())
         var calls = 0
+        var lastCaption: String? = null
 
         override fun send(file: File, caption: String, onProgress: (Float) -> Unit): SendResult {
             calls++
+            lastCaption = caption
             onProgress(1f)
             return if (queue.size > 1) queue.removeFirst() else queue.first()
         }

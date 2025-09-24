@@ -56,6 +56,75 @@ class SqliteUploadStore(
         return inserted
     }
 
+    /** Adds many pending uploads in one transaction. Returns how many were new. */
+    fun insertBatchIfAbsent(items: List<Pair<String, String>>): Int {
+        if (items.isEmpty()) return 0
+        val db = writableDatabase
+        var added = 0
+        db.beginTransaction()
+        try {
+            val now = System.currentTimeMillis()
+            for ((id, path) in items) {
+                val values = ContentValues().apply {
+                    put("recording_id", id)
+                    put("file_path", path)
+                    put("status", UploadStatus.PENDING.wireName)
+                    put("created_at", now)
+                    put("updated_at", now)
+                }
+                if (db.insertWithOnConflict(TABLE, null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L) added++
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        return added
+    }
+
+    /**
+     * Oldest unfinished upload with [prefix]. Only one drain job runs at a
+     * time, so an `uploading` row here is left over from a killed run.
+     */
+    fun nextRunnable(prefix: String): UploadRecord? =
+        readableDatabase.query(
+            TABLE, null,
+            "substr(recording_id, 1, ?) = ? AND status IN (?, ?)",
+            arrayOf(prefix.length.toString(), prefix, UploadStatus.PENDING.wireName, UploadStatus.UPLOADING.wireName),
+            null, null, "created_at ASC, recording_id ASC", "1",
+        ).use { if (it.moveToFirst()) it.toRecord() else null }
+
+    /** Number of uploads per status wire name for IDs starting with [prefix]. */
+    fun countsByPrefix(prefix: String): Map<String, Int> =
+        readableDatabase.rawQuery(
+            "SELECT status, COUNT(*) FROM $TABLE WHERE substr(recording_id, 1, ?) = ? GROUP BY status",
+            arrayOf(prefix.length.toString(), prefix),
+        ).use { c -> buildMap { while (c.moveToNext()) put(c.getString(0), c.getInt(1)) } }
+
+    /** Forgets unfinished (not uploaded) uploads with [prefix]. Uploaded history is kept. */
+    fun deleteUnfinishedByPrefix(prefix: String) {
+        writableDatabase.delete(
+            TABLE, "substr(recording_id, 1, ?) = ? AND status != ?",
+            arrayOf(prefix.length.toString(), prefix, UploadStatus.UPLOADED.wireName),
+        )
+    }
+
+    /** Turns uploads interrupted mid-way back into pending ones. */
+    fun requeueInterrupted(prefix: String) {
+        writableDatabase.execSQL(
+            "UPDATE $TABLE SET status = ?, progress = 0 WHERE substr(recording_id, 1, ?) = ? AND status = ?",
+            arrayOf<Any>(UploadStatus.PENDING.wireName, prefix.length, prefix, UploadStatus.UPLOADING.wireName),
+        )
+    }
+
+    /** Puts failed uploads with [prefix] back in the queue with a fresh attempt budget. */
+    fun resetFailedByPrefix(prefix: String) {
+        writableDatabase.execSQL(
+            "UPDATE $TABLE SET status = ?, progress = 0, attempts = 0, last_error = NULL " +
+                "WHERE substr(recording_id, 1, ?) = ? AND status = ?",
+            arrayOf<Any>(UploadStatus.PENDING.wireName, prefix.length, prefix, UploadStatus.FAILED.wireName),
+        )
+    }
+
     /** Puts a failed upload back in the queue with a fresh attempt budget. */
     fun resetForRetry(recordingId: String) = update(
         recordingId,
