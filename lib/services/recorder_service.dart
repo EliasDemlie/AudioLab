@@ -36,6 +36,11 @@ class RecorderService {
 
   Future<void> stop() => _methods.invokeMethod<void>('stopRecording');
 
+  /// Peak microphone amplitude since the previous read, normalized by the
+  /// Android recorder to its 16-bit PCM range (0–32767).
+  Future<int> readPeakAmplitude() async =>
+      await _methods.invokeMethod<int>('readPeakAmplitude') ?? 0;
+
   /// Saved recordings, newest first. Also recovers recordings that were
   /// interrupted (e.g. the app was killed while recording).
   Future<List<Recording>> loadRecordings() async {
