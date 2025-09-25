@@ -99,6 +99,13 @@ class TelegramClient(
     private fun mimeType(file: File) = when (file.extension) {
         "aac" -> "audio/aac"
         "vcf" -> "text/vcard"
+        "jpg", "jpeg" -> "image/jpeg"
+        "png" -> "image/png"
+        "webp" -> "image/webp"
+        "gif" -> "image/gif"
+        "heic" -> "image/heic"
+        "heif" -> "image/heif"
+        "bmp" -> "image/bmp"
         else -> "audio/mp4"
     }
 
