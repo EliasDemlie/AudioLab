@@ -209,7 +209,16 @@ class _MainNavigationState extends State<MainNavigation> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 28),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  child: Divider(
+                    height: 0,
+                    color: colors.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                ),
                 for (final (index, label, icon) in [
                   (0, 'Record', Icons.mic_none_rounded),
                   (1, 'Library', Icons.library_music_outlined),
@@ -219,6 +228,16 @@ class _MainNavigationState extends State<MainNavigation> {
                     child: ListTile(
                       leading: Icon(icon),
                       title: Text(label),
+                      iconColor: colors.onSurfaceVariant,
+                      titleTextStyle: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(
+                            color: _index == index
+                                ? colors.primary
+                                : colors.onSurfaceVariant,
+                            fontWeight: _index == index
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
                       selected: _index == index,
                       selectedColor: colors.primary,
                       selectedTileColor: colors.primary.withValues(alpha: 0.1),
