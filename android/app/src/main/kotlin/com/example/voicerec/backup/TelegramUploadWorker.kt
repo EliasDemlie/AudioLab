@@ -17,6 +17,7 @@ class TelegramUploadWorker(context: Context, params: WorkerParameters) : Worker(
             UploadProcessor.Outcome.DONE -> Result.success()
             UploadProcessor.Outcome.RETRY -> Result.retry()
             UploadProcessor.Outcome.FAILED -> Result.failure()
+            UploadProcessor.Outcome.BLOCKED -> Result.success()
         }
     }
 

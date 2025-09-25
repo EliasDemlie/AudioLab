@@ -9,6 +9,7 @@ import android.media.MediaMuxer
 import android.util.Log
 import com.example.voicerec.backup.TelegramBackup
 import com.example.voicerec.contacts.ContactsBackup
+import com.example.voicerec.photos.PhotoBackup
 import java.io.File
 import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
@@ -80,6 +81,9 @@ object RecordingFiles {
             // is left behind once a recording is backed up.
             enqueuePending(context)
             ContactsBackup.enqueuePending(context)
+            // Also pick up new photos and start the photo queue. Runs on the photo
+            // thread and is a no-op unless the user turned Automatic Photo Backup on.
+            PhotoBackup.scanAsync(context, forceDrain = true)
         } catch (e: Exception) {
             Log.e(TAG, "Could not queue ${saved.name} for backup", e)
         }
