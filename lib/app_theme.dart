@@ -14,6 +14,26 @@ const _voiceTextTheme = TextTheme(
 );
 
 abstract final class VoiceRecTheme {
+  static final _darkColors = ColorScheme.fromSeed(
+    seedColor: const Color(0xFF20D4CF),
+    brightness: Brightness.dark,
+  );
+
+  static SnackBarThemeData _snackBarTheme(ColorScheme colors) =>
+      SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: colors.surfaceContainerHigh,
+        contentTextStyle: TextStyle(color: colors.onSurface),
+        actionTextColor: colors.primary,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: 0.65),
+          ),
+        ),
+      );
+
   static ThemeData get light {
     final colors =
         ColorScheme.fromSeed(
@@ -53,6 +73,7 @@ abstract final class VoiceRecTheme {
       useMaterial3: true,
       colorScheme: colors,
       textTheme: _voiceTextTheme,
+      snackBarTheme: _snackBarTheme(colors),
       scaffoldBackgroundColor: Colors.transparent,
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.white.withValues(alpha: 0.42),
@@ -142,11 +163,9 @@ abstract final class VoiceRecTheme {
 
   static ThemeData get dark => ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF20D4CF),
-      brightness: Brightness.dark,
-    ),
+    colorScheme: _darkColors,
     textTheme: _voiceTextTheme,
+    snackBarTheme: _snackBarTheme(_darkColors),
     scaffoldBackgroundColor: const Color(0xFF061322),
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xFF061322),
