@@ -11,6 +11,7 @@ import 'package:voicerec/screens/audio_effects_screen.dart';
 import 'package:voicerec/screens/audio_editor_screen.dart';
 import 'package:voicerec/screens/recording_saved_screen.dart';
 import 'package:voicerec/services/recorder_service.dart';
+import 'package:voicerec/widgets/audio_preset_selector.dart';
 import 'package:voicerec/widgets/circular_eq_dial.dart';
 
 void main() {
@@ -30,15 +31,23 @@ void main() {
     expect(dials, findsNWidgets(3));
     final presetChips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
     expect(presetChips, hasLength(4));
+    final selectorBounds = tester.getRect(find.byType(AudioPresetSelector));
     for (final chip in presetChips) {
       expect(chip.showCheckmark, isFalse);
-      final label = chip.label as Text;
+      final chipFinder = find.byWidget(chip);
+      final label = tester.widget<Text>(
+        find.descendant(of: chipFinder, matching: find.byType(Text)),
+      );
       expect(label.maxLines, 1);
       expect(label.softWrap, isFalse);
+      final bounds = tester.getRect(chipFinder);
       expect(
-        tester.getTopLeft(find.byWidget(chip)).dy,
+        bounds.top,
         tester.getTopLeft(find.widgetWithText(ChoiceChip, 'Flat')).dy,
       );
+      expect(bounds.left, greaterThanOrEqualTo(selectorBounds.left - 0.1));
+      expect(bounds.right, lessThanOrEqualTo(selectorBounds.right + 0.1));
+      expect(chipFinder.hitTestable(), findsOneWidget);
     }
     final heading = tester.widget<Text>(find.text('Shape your sound'));
     final description = tester.widget<Text>(
@@ -328,16 +337,24 @@ void main() {
         expect(tester.takeException(), isNull);
 
         await _tapControl(tester, 'Show effects');
-        final brightPreset = find.widgetWithText(ChoiceChip, 'Bright');
-        expect(
-          tester.getTopLeft(brightPreset).dy,
-          tester.getTopLeft(find.widgetWithText(ChoiceChip, 'Flat')).dy,
-        );
-        await tester.ensureVisible(brightPreset);
-        await tester.pumpAndSettle();
-        expect(brightPreset.hitTestable(), findsOneWidget);
-        await tester.tap(brightPreset);
-        await tester.pumpAndSettle();
+        final selectorBounds = tester.getRect(find.byType(AudioPresetSelector));
+        final presetTop = tester
+            .getTopLeft(find.widgetWithText(ChoiceChip, 'Flat'))
+            .dy;
+        for (final preset in ['Flat', 'Voice', 'Warm', 'Bright']) {
+          final chip = find.widgetWithText(ChoiceChip, preset);
+          final bounds = tester.getRect(chip);
+          expect(bounds.top, closeTo(presetTop, 1));
+          expect(bounds.left, greaterThanOrEqualTo(selectorBounds.left - 0.1));
+          expect(bounds.right, lessThanOrEqualTo(selectorBounds.right + 0.1));
+          final labelBounds = tester.getRect(find.text(preset));
+          expect(labelBounds.left, greaterThanOrEqualTo(bounds.left - 0.1));
+          expect(labelBounds.right, lessThanOrEqualTo(bounds.right + 0.1));
+          expect(chip.hitTestable(), findsOneWidget);
+          await tester.tap(chip);
+          await tester.pumpAndSettle();
+          expect(tester.widget<ChoiceChip>(chip).selected, isTrue);
+        }
         expect(service.equalizerUpdates.last, [-0.12, 0.12, 0.32]);
         await tester.ensureVisible(find.byType(CircularEqDial).last);
         await tester.pumpAndSettle();

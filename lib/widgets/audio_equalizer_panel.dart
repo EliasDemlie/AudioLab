@@ -52,7 +52,6 @@ class AudioEqualizerPanel extends StatelessWidget {
             builder: (context, isBusy, _) => AudioPresetSelector(
               gains: values,
               onSelected: isBusy ? null : onChanged,
-              alignment: MainAxisAlignment.center,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
