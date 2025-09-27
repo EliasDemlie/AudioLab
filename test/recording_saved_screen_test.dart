@@ -15,6 +15,7 @@ import 'package:voicerec/widgets/circular_eq_dial.dart';
 
 void main() {
   testWidgets('effects controls match the dark app theme', (tester) async {
+    _setViewport(tester, const Size(320, 568));
     final service = _PlaybackService();
     final controller = RecorderController(service: service);
     addTearDown(controller.dispose);
@@ -34,6 +35,10 @@ void main() {
       final label = chip.label as Text;
       expect(label.maxLines, 1);
       expect(label.softWrap, isFalse);
+      expect(
+        tester.getTopLeft(find.byWidget(chip)).dy,
+        tester.getTopLeft(find.widgetWithText(ChoiceChip, 'Flat')).dy,
+      );
     }
     final heading = tester.widget<Text>(find.text('Shape your sound'));
     final description = tester.widget<Text>(
@@ -289,8 +294,9 @@ void main() {
                 : VoiceRecTheme.dark,
             builder: (context, child) => VoiceRecBackdrop(
               child: MediaQuery(
-                data: MediaQuery.of(context)
-                    .copyWith(textScaler: TextScaler.linear(1.8)),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(1.8)),
                 child: child!,
               ),
             ),
@@ -322,6 +328,17 @@ void main() {
         expect(tester.takeException(), isNull);
 
         await _tapControl(tester, 'Show effects');
+        final brightPreset = find.widgetWithText(ChoiceChip, 'Bright');
+        expect(
+          tester.getTopLeft(brightPreset).dy,
+          tester.getTopLeft(find.widgetWithText(ChoiceChip, 'Flat')).dy,
+        );
+        await tester.ensureVisible(brightPreset);
+        await tester.pumpAndSettle();
+        expect(brightPreset.hitTestable(), findsOneWidget);
+        await tester.tap(brightPreset);
+        await tester.pumpAndSettle();
+        expect(service.equalizerUpdates.last, [-0.12, 0.12, 0.32]);
         await tester.ensureVisible(find.byType(CircularEqDial).last);
         await tester.pumpAndSettle();
         expect(find.byType(CircularEqDial), findsNWidgets(3));

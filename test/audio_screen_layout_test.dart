@@ -147,6 +147,16 @@ Future<void> _exerciseEffectToggle(
     inInclusiveRange(0, 52),
     reason: 'Effects should appear directly below the playback controls',
   );
+  final presetTop = tester
+      .getTopLeft(find.widgetWithText(ChoiceChip, 'Flat'))
+      .dy;
+  for (final preset in ['Voice', 'Warm', 'Bright']) {
+    expect(
+      tester.getTopLeft(find.widgetWithText(ChoiceChip, preset)).dy,
+      closeTo(presetTop, 1),
+      reason: 'Presets should stay in one row on narrow screens',
+    );
+  }
   _expectDialSpacing(tester);
   _expectUpperControlsUnchanged(tester, before, editing: editing);
 
