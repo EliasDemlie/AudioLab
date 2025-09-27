@@ -135,6 +135,7 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return PopScope<void>(
       canPop: _index == 0 || _drawerOpen,
       onPopInvokedWithResult: (didPop, _) {
@@ -151,21 +152,6 @@ class _MainNavigationState extends State<MainNavigation> {
           ),
           title: Text(_index == 0 ? 'VoicePro' : 'Library'),
           centerTitle: false,
-          actions: [
-            if (widget.onToggleTheme != null)
-              IconButton(
-                tooltip: Theme.of(context).brightness == Brightness.dark
-                    ? 'Switch to light mode'
-                    : 'Switch to dark mode',
-                onPressed: widget.onToggleTheme,
-                icon: Icon(
-                  Theme.of(context).brightness == Brightness.dark
-                      ? Icons.light_mode_outlined
-                      : Icons.dark_mode_outlined,
-                ),
-              ),
-            const SizedBox(width: 8),
-          ],
         ),
         drawer: Drawer(
           width: MediaQuery.sizeOf(context).width < 360 ? 280 : 304,
@@ -247,6 +233,37 @@ class _MainNavigationState extends State<MainNavigation> {
                       onTap: () => _selectDestination(index),
                     ),
                   ),
+                if (widget.onToggleTheme != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Divider(
+                      height: 0,
+                      color: colors.outlineVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      dark
+                          ? Icons.light_mode_outlined
+                          : Icons.dark_mode_outlined,
+                    ),
+                    title: Text(
+                      dark ? 'Switch to light mode' : 'Switch to dark mode',
+                    ),
+                    iconColor: colors.onSurfaceVariant,
+                    textColor: colors.onSurfaceVariant,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    onTap: () {
+                      _scaffoldKey.currentState?.closeDrawer();
+                      widget.onToggleTheme?.call();
+                    },
+                  ),
+                ],
               ],
             ),
           ),

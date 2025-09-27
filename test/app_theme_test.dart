@@ -28,34 +28,50 @@ void main() {
 
     Brightness appearance() =>
         Theme.of(tester.element(find.byType(AppBar))).brightness;
+    Future<void> openMenu() async {
+      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> switchTheme(String label) async {
+      await openMenu();
+      await tester.tap(find.widgetWithText(ListTile, label));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ListTile, label), findsNothing);
+    }
+
     expect(appearance(), Brightness.dark);
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.byTooltip('Switch to light mode'), findsOneWidget);
+    expect(tester.widget<AppBar>(find.byType(AppBar)).actions, isNull);
+    expect(find.text('Switch to light mode'), findsNothing);
+    await openMenu();
+    expect(
+      find.widgetWithText(ListTile, 'Switch to light mode'),
+      findsOneWidget,
+    );
 
     platform.platformBrightnessTestValue = Brightness.light;
     await tester.pumpAndSettle();
     expect(appearance(), Brightness.light);
-    expect(find.byTooltip('Switch to dark mode'), findsOneWidget);
+    expect(
+      find.widgetWithText(ListTile, 'Switch to dark mode'),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.byTooltip('Open navigation menu'));
-    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Library'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Switch to dark mode'));
-    await tester.pumpAndSettle();
+    await switchTheme('Switch to dark mode');
     expect(appearance(), Brightness.dark);
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
 
-    await tester.tap(find.byTooltip('Switch to light mode'));
-    await tester.pumpAndSettle();
+    await switchTheme('Switch to light mode');
     expect(appearance(), Brightness.light);
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
     expect(
       tester.widget<AppBar>(find.byType(AppBar)).title,
       isA<Text>().having((title) => title.data, 'data', 'Library'),
     );
-    await tester.tap(find.byTooltip('Open navigation menu'));
-    await tester.pumpAndSettle();
+    await openMenu();
     expect(
       tester
           .widget<ListTile>(find.widgetWithText(ListTile, 'Library'))
@@ -64,8 +80,7 @@ void main() {
     );
     await tester.tap(find.widgetWithText(ListTile, 'Record'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Switch to dark mode'));
-    await tester.pumpAndSettle();
+    await switchTheme('Switch to dark mode');
     expect(appearance(), Brightness.dark);
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
     expect(
