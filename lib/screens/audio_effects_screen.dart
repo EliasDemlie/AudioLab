@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/recorder_controller.dart';
-import '../utils/audio_effect_presets.dart';
+import '../widgets/audio_preset_selector.dart';
 import '../widgets/equalizer_dials.dart';
 
 class AudioEffectsScreen extends StatefulWidget {
@@ -63,32 +63,26 @@ class _AudioEffectsScreenState extends State<AudioEffectsScreen> {
           const SizedBox(height: 8),
           Text(
             'Adjust playback EQ for a clearer voice preview.',
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: colors.onSurfaceVariant),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 28),
           Text(
             'PRESETS',
-            style: Theme.of(context).textTheme.labelMedium
-                ?.copyWith(color: colors.onSurfaceVariant, letterSpacing: 1.2),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+              letterSpacing: 1.2,
+            ),
           ),
           const SizedBox(height: 12),
           ValueListenableBuilder<List<double>>(
             valueListenable: _gains,
             builder: (context, gains, _) => ValueListenableBuilder<bool>(
               valueListenable: _busy,
-              builder: (context, busy, _) => Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final entry in audioEffectPresets.entries)
-                    ChoiceChip(
-                      showCheckmark: false,
-                      label: Text(entry.key, maxLines: 1, softWrap: false),
-                      selected: audioEffectPresetFor(gains) == entry.key,
-                      onSelected: busy ? null : (_) => _apply(entry.value),
-                    ),
-                ],
+              builder: (context, busy, _) => AudioPresetSelector(
+                gains: gains,
+                onSelected: busy ? null : _apply,
               ),
             ),
           ),
