@@ -27,7 +27,9 @@ class AudioEqualizerPanel extends StatelessWidget {
             Text(
               'EQUALIZER',
               style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.1,
               ),
             ),
             const Spacer(),
