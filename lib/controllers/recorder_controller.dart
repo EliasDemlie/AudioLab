@@ -32,6 +32,8 @@ class RecorderController extends ChangeNotifier {
   final ValueNotifier<double> audioLevel = ValueNotifier(0);
   final ValueNotifier<List<Recording>> recordingsListenable =
       ValueNotifier<List<Recording>>(const []);
+  final ValueNotifier<List<Recording>> draftRecordingsListenable =
+      ValueNotifier<List<Recording>>(const []);
   final List<Duration> _bookmarks = [];
 
   RecorderState _state = const RecorderState.idle();
@@ -65,6 +67,7 @@ class RecorderController extends ChangeNotifier {
       onError: (Object e) => _errors.add('Recorder error: $e'),
     );
     await refreshRecordings();
+    await refreshDrafts();
   }
 
   Future<void> start() async {
@@ -119,17 +122,18 @@ class RecorderController extends ChangeNotifier {
     try {
       await completion.future.timeout(const Duration(seconds: 60));
     } on TimeoutException {
-      _errors.add('Recording is taking longer than expected to save.');
+      _errors.add('Recording is taking longer than expected to finish.');
       return null;
     } finally {
       if (identical(_stopCompleter, completion)) _stopCompleter = null;
     }
 
-    await refreshRecordings();
-    if (_recordings.isEmpty) return null;
-    if (activePath == null) return _recordings.first;
+    await refreshDrafts();
+    final drafts = draftRecordingsListenable.value;
+    if (drafts.isEmpty) return null;
+    if (activePath == null) return drafts.first;
     final activeBase = _baseName(activePath);
-    for (final recording in _recordings) {
+    for (final recording in drafts) {
       if (_baseName(recording.file.path) == activeBase) return recording;
     }
     return null;
@@ -139,6 +143,45 @@ class RecorderController extends ChangeNotifier {
     final renamed = await _service.rename(recording, title);
     await refreshRecordings();
     return renamed;
+  }
+
+  Future<Recording> saveDraft(Recording recording, String title) async {
+    final saved = await _service.saveRecording(recording, title);
+    _removeDraft(recording);
+    if (!_disposed) {
+      _recordings = [
+        saved,
+        ..._recordings.where((item) => item.id != saved.id),
+      ];
+      recordingsListenable.value = _recordings;
+    }
+    await refreshRecordings();
+    await refreshDrafts();
+    return saved;
+  }
+
+  Future<void> discardDraft(Recording recording) async {
+    await _service.discardDraftRecording(recording);
+    _removeDraft(recording);
+    await refreshDrafts();
+  }
+
+  void _removeDraft(Recording recording) {
+    if (_disposed) return;
+    draftRecordingsListenable.value = draftRecordingsListenable.value
+        .where((draft) => draft.file.path != recording.file.path)
+        .toList(growable: false);
+  }
+
+  Future<void> refreshDrafts() async {
+    try {
+      final drafts = await _service.loadDraftRecordings();
+      if (!_disposed) draftRecordingsListenable.value = drafts;
+    } on PlatformException catch (e) {
+      if (!_disposed) {
+        _errors.add(e.message ?? 'Could not load unsaved recordings');
+      }
+    }
   }
 
   Future<Recording> trimAudio(
@@ -262,7 +305,7 @@ class RecorderController extends ChangeNotifier {
     if (wasActive && !state.isActive) {
       final completion = _stopCompleter;
       if (completion != null && !completion.isCompleted) completion.complete();
-      if (completion == null) unawaited(refreshRecordings());
+      if (completion == null) unawaited(refreshDrafts());
     }
     notifyListeners();
   }
@@ -350,6 +393,7 @@ class RecorderController extends ChangeNotifier {
     _transitionTimer?.cancel();
     audioLevel.dispose();
     recordingsListenable.dispose();
+    draftRecordingsListenable.dispose();
     _errors.close();
     super.dispose();
   }
