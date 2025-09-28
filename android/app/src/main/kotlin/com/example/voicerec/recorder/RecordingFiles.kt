@@ -34,9 +34,12 @@ object RecordingFiles {
 
     fun dir(context: Context): File = File(context.filesDir, "recordings").apply { mkdirs() }
 
+    /** Unnamed captures survive process restarts without appearing in the library. */
+    fun draftsDir(context: Context): File = File(context.filesDir, "recording_drafts").apply { mkdirs() }
+
     fun hasFreeSpace(context: Context): Boolean = dir(context).usableSpace >= MIN_FREE_BYTES
 
-    fun newRawFile(context: Context, startedAt: Long): File = newRawFile(dir(context), startedAt)
+    fun newRawFile(context: Context, startedAt: Long): File = newRawFile(draftsDir(context), startedAt)
 
     internal fun newRawFile(directory: File, startedAt: Long): File {
         val base = SimpleDateFormat("'rec_'yyyyMMdd", Locale.US).format(Date(startedAt))
@@ -71,7 +74,11 @@ object RecordingFiles {
 
     /** Finalizes `.aac` files left behind by a killed recording. Call on [io]. */
     fun recoverInterrupted(context: Context, activePath: String?) {
-        dir(context).listFiles()
+        recoverInterrupted(dir(context), activePath)
+    }
+
+    private fun recoverInterrupted(directory: File, activePath: String?) {
+        directory.listFiles()
             ?.filter { it.extension == RAW_EXTENSION && it.absolutePath != activePath }
             ?.forEach {
                 Log.i(TAG, "Recovering interrupted recording ${it.name}")
@@ -79,13 +86,95 @@ object RecordingFiles {
             }
     }
 
+    /** Restores unfinished draft containers while leaving a live capture alone. Call on [io]. */
+    fun listDrafts(context: Context, activePath: String?): List<Map<String, Any?>> {
+        val directory = draftsDir(context)
+        recoverInterrupted(directory, activePath)
+        return list(directory, activePath, includeDuration = true).filter { draft ->
+            val path = draft["path"] as String
+            return@filter !isActiveDraft(path, activePath)
+        }
+    }
+
+    internal fun isActiveDraft(path: String, activePath: String?): Boolean {
+        if (activePath == null) return false
+        val file = File(path).canonicalFile
+        val active = File(activePath).canonicalFile
+        // Finalization changes the suffix before the service posts its idle event.
+        return file.parentFile == active.parentFile &&
+            file.nameWithoutExtension == active.nameWithoutExtension
+    }
+
+    /** Moves a draft only after the user names it, restoring it if catalog persistence fails. */
+    internal fun <T> saveDraft(
+        draftsDirectory: File,
+        savedDirectory: File,
+        path: String,
+        title: String,
+        register: (File, String) -> T,
+    ): T {
+        val source = validateDraft(draftsDirectory, path)
+        require(source.isFile) { "The recording draft was not found." }
+        val safeTitle = sanitizeTitle(title)
+        require(savedDirectory.isDirectory || savedDirectory.mkdirs()) {
+            "Could not create the recordings folder."
+        }
+        var target = File(savedDirectory, "$safeTitle.${source.extension}")
+        var suffix = 1
+        while (target.exists()) {
+            target = File(savedDirectory, "$safeTitle (${suffix++}).${source.extension}")
+        }
+        check(source.renameTo(target)) { "Could not save the recording. Please try again." }
+        try {
+            return register(target, safeTitle)
+        } catch (error: Exception) {
+            if (!target.renameTo(source)) {
+                throw IllegalStateException(
+                    "The recording is safe, but its library entry could not be updated. Please reopen the app.",
+                    error,
+                )
+            }
+            throw error
+        }
+    }
+
+    internal fun discardDraft(draftsDirectory: File, path: String) {
+        val file = validateDraft(draftsDirectory, path)
+        check(!file.exists() || file.delete()) { "Could not discard the recording. Please try again." }
+    }
+
+    private fun validateDraft(draftsDirectory: File, path: String): File {
+        val file = File(path).canonicalFile
+        require(file.parentFile == draftsDirectory.canonicalFile &&
+            file.extension.lowercase(Locale.US) in setOf(RAW_EXTENSION, FINAL_EXTENSION)
+        ) { "Choose a recording draft from this app." }
+        require(!file.isDirectory) { "The recording draft was not found." }
+        return file
+    }
+
+    private fun sanitizeTitle(title: String): String {
+        val cleaned = title.trim()
+            .replace(Regex("[/\\\\\\u0000-\\u001F]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        require(cleaned.isNotEmpty()) { "Enter a file name." }
+        val count = minOf(cleaned.codePointCount(0, cleaned.length), 80)
+        return cleaned.substring(0, cleaned.offsetByCodePoints(0, count))
+    }
+
     /** Saved recordings, newest first, excluding [activePath]. Call on [io]. */
     fun list(
         context: Context,
         activePath: String?,
         includeDuration: Boolean = true,
+    ): List<Map<String, Any?>> = list(dir(context), activePath, includeDuration)
+
+    private fun list(
+        directory: File,
+        activePath: String?,
+        includeDuration: Boolean,
     ): List<Map<String, Any?>> =
-        dir(context).listFiles()
+        directory.listFiles()
             .orEmpty()
             .filter { it.isFile && it.absolutePath != activePath }
             .filter { it.extension == FINAL_EXTENSION || it.extension == RAW_EXTENSION }
