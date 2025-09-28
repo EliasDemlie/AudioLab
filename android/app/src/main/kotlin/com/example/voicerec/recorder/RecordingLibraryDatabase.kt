@@ -126,6 +126,20 @@ class RecordingLibraryDatabase(context: Context) :
         return listAll()
     }
 
+    /** Adds a named draft atomically, so a failure can restore its file to draft storage. */
+    fun registerSavedDraft(oldPath: String, newPath: String, title: String): Map<String, Any?> {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            updateFilePath(oldPath, newPath, title)
+            val recording = listAll().first { it["path"] == newPath }
+            db.setTransactionSuccessful()
+            return recording
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     /** Keeps a stable catalog ID when a recording file is renamed. */
     fun updateFilePath(oldPath: String, newPath: String, title: String) {
         val db = writableDatabase

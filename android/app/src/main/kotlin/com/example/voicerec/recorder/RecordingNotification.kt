@@ -46,7 +46,7 @@ class RecordingNotification(private val context: Context) {
 
     private fun title(state: RecorderState): String = when (state.status) {
         RecorderStatus.PAUSED -> "Recording paused"
-        RecorderStatus.STOPPING -> "Saving recording…"
+        RecorderStatus.STOPPING -> "Finishing recording…"
         else -> "Recording audio"
     }
 
