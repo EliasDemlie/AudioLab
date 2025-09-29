@@ -33,12 +33,12 @@ class RecordingStatus extends StatelessWidget {
             RecorderStatus.stopping => colors.secondary,
           };
     final label = isStopPending
-        ? 'Saving recording'
+        ? 'Finishing recording'
         : switch (status) {
             RecorderStatus.idle => 'Ready to record',
             RecorderStatus.recording => 'Recording',
             RecorderStatus.paused => 'Recording paused',
-            RecorderStatus.stopping => 'Saving recording',
+            RecorderStatus.stopping => 'Finishing recording',
           };
     return Column(
       mainAxisSize: MainAxisSize.min,

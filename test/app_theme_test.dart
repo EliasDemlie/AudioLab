@@ -10,6 +10,10 @@ void main() {
   testWidgets('follows system appearance and switches themes on drawer pages', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
     final messenger = tester.binding.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(methods, (call) async {
       if (call.method == 'listRecordings') return <Object>[];
@@ -31,6 +35,10 @@ void main() {
     Future<void> openMenu() async {
       await tester.tap(find.byTooltip('Open navigation menu'));
       await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(Drawer)).right,
+        tester.view.physicalSize.width,
+      );
     }
 
     Future<void> switchTheme(String label) async {
@@ -42,7 +50,28 @@ void main() {
 
     expect(appearance(), Brightness.dark);
     expect(find.byType(NavigationBar), findsNothing);
-    expect(tester.widget<AppBar>(find.byType(AppBar)).actions, isNull);
+    final appBar = find.byType(AppBar);
+    final logo = find.descendant(
+      of: appBar,
+      matching: find.byIcon(Icons.mic_rounded),
+    );
+    final appName = find.descendant(
+      of: appBar,
+      matching: find.text('VoicePro'),
+    );
+    final menu = find.byTooltip('Open navigation menu');
+    expect(logo, findsOneWidget);
+    expect(appName, findsOneWidget);
+    expect(tester.getRect(logo).right, lessThan(tester.getRect(appName).left));
+    expect(tester.getRect(appName).right, lessThan(tester.getRect(menu).left));
+    expect(tester.getRect(menu).right, greaterThan(280));
+    expect(
+      find.descendant(
+        of: appBar,
+        matching: find.byIcon(Icons.light_mode_outlined),
+      ),
+      findsNothing,
+    );
     expect(find.text('Switch to light mode'), findsNothing);
     await openMenu();
     expect(
@@ -68,8 +97,8 @@ void main() {
     expect(appearance(), Brightness.light);
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
     expect(
-      tester.widget<AppBar>(find.byType(AppBar)).title,
-      isA<Text>().having((title) => title.data, 'data', 'Library'),
+      find.descendant(of: appBar, matching: find.text('VoicePro')),
+      findsOneWidget,
     );
     await openMenu();
     expect(
@@ -84,8 +113,8 @@ void main() {
     expect(appearance(), Brightness.dark);
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
     expect(
-      tester.widget<AppBar>(find.byType(AppBar)).title,
-      isA<Text>().having((title) => title.data, 'data', 'VoicePro'),
+      find.descendant(of: appBar, matching: find.text('VoicePro')),
+      findsOneWidget,
     );
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
