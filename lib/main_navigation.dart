@@ -7,8 +7,8 @@ import 'models/recording.dart';
 import 'screens/recordings_tab.dart';
 import 'screens/recorder_tab.dart';
 import 'screens/recording_saved_screen.dart';
-import 'screens/save_recording_screen.dart';
 import 'widgets/rename_recording_sheet.dart';
+import 'widgets/save_recording_sheet.dart';
 
 /// App shell. Menu destinations retain their state in the IndexedStack.
 class MainNavigation extends StatefulWidget {
@@ -26,7 +26,7 @@ class _MainNavigationState extends State<MainNavigation> {
   late final StreamSubscription<String> _errorSub;
   int _index = 0;
   bool _drawerOpen = false;
-  bool _saveScreenOpen = false;
+  bool _saveSheetOpen = false;
   bool _draftPromptScheduled = false;
 
   @override
@@ -70,7 +70,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   void _queueDraftPrompt() {
     if (!mounted ||
-        _saveScreenOpen ||
+        _saveSheetOpen ||
         _draftPromptScheduled ||
         _controller.draftRecordingsListenable.value.isEmpty) {
       return;
@@ -79,7 +79,7 @@ class _MainNavigationState extends State<MainNavigation> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _draftPromptScheduled = false;
       if (!mounted ||
-          _saveScreenOpen ||
+          _saveSheetOpen ||
           _controller.draftRecordingsListenable.value.isEmpty ||
           ModalRoute.of(context)?.isCurrent != true) {
         return;
@@ -90,17 +90,25 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 
   Future<void> _openDraft(Recording recording) async {
-    _saveScreenOpen = true;
+    _saveSheetOpen = true;
     _controller.setRecorderTabVisible(false);
     _scaffoldKey.currentState?.closeEndDrawer();
     try {
-      final saved = await Navigator.of(context).push<Recording>(
-        MaterialPageRoute(
-          builder: (_) => SaveRecordingScreen(
-            recording: recording,
-            onSave: (title) => _controller.saveDraft(recording, title),
-            onDiscard: () => _controller.discardDraft(recording),
-          ),
+      final saved = await showModalBottomSheet<Recording>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: false,
+        isDismissible: false,
+        enableDrag: false,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        builder: (_) => SaveRecordingSheet(
+          recording: recording,
+          onSave: (title) => _controller.saveDraft(recording, title),
+          onDiscard: () => _controller.discardDraft(recording),
         ),
       );
       if (saved != null && mounted) {
@@ -110,7 +118,7 @@ class _MainNavigationState extends State<MainNavigation> {
           ..showSnackBar(const SnackBar(content: Text('Recording saved')));
       }
     } finally {
-      _saveScreenOpen = false;
+      _saveSheetOpen = false;
       if (mounted) {
         _controller.setRecorderTabVisible(_index == 0);
         _queueDraftPrompt();
