@@ -1,17 +1,68 @@
-# voicerec
+# AudioLab
 
-A new Flutter project.
+AudioLab by beamlineTech is a Flutter app for recording, editing, and organizing audio.
 
-## Getting Started
+The application identifier is `com.beamlinetech.audiolab`.
 
-This project is a starting point for a Flutter application.
+## Development
 
-A few resources to get you started if this is your first Flutter project:
+Run `flutter pub get`, then `flutter run` to launch the app. Use `flutter test`
+for the Flutter test suite.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Store listing copy
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Copy these fields into the store console for a release that supports the described
+features. Editing this file does not publish or update a store listing. The
+installed app name remains AudioLab, with beamlineTech as the brand.
+
+### Google Play
+
+The title, short description, and full description below fit Google's limits of
+30, 80, and 4,000 characters. [Google Play listing fields](https://support.google.com/googleplay/android-developer/answer/9859152?hl=en)
+
+**Title**
+
+```text
+AudioLab: Voice Recorder
+```
+
+**Short description**
+
+```text
+Record voice notes, trim audio copies, and fine-tune playback with EQ.
+```
+
+**Full description**
+
+```text
+AudioLab by beamlineTech helps you record voice notes and edit your audio.
+
+Capture audio with your microphone, pause and resume recording, then choose a file name and save when you are ready.
+
+Prepare your recordings for playback:
+- Trim a selected section and save it as a new copy, keeping the original recording.
+- Adjust bass, presence, and treble or choose Flat, Voice, Warm, and Bright presets for playback EQ.
+- Open your recordings in the library, rename them, and share audio using your device's share options.
+
+Playback EQ changes the preview sound while your original recording stays unchanged.
+```
+
+### App Store
+
+Use the same title and full description for a supported Apple release. This
+subtitle fits the 30-character limit. [Apple app information](https://developer.apple.com/help/app-store-connect/reference/app-information/app-information)
+
+**Subtitle**
+
+```text
+Audio editor & playback EQ
+```
+
+**Keywords**
+
+```text
+memo,notes,interview,meeting,lecture,microphone,trim,cut,save,share
+```
+
+The keyword list stays within 100 characters and avoids repeating terms in the
+title and subtitle. [Apple search guidance](https://developer.apple.com/app-store/search/)
