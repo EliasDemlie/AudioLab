@@ -3,7 +3,7 @@ enum RecorderStatus {
   recording,
   paused,
 
-  /// Recorder stopped; the file is being saved.
+  /// Recorder stopped; the captured audio is being finalized as a draft.
   stopping;
 
   static RecorderStatus fromName(String? name) => RecorderStatus.values

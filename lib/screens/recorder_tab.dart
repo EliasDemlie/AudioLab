@@ -28,12 +28,12 @@ class _RecorderTabState extends State<RecorderTab> {
   bool _controlsLocked = false;
 
   String get _controlLabel {
-    if (widget.controller.isStopPending) return 'Saving…';
+    if (widget.controller.isStopPending) return 'Finishing…';
     return switch (widget.controller.status) {
       RecorderStatus.idle => 'Record',
       RecorderStatus.recording => 'Pause',
       RecorderStatus.paused => 'Resume',
-      RecorderStatus.stopping => 'Saving…',
+      RecorderStatus.stopping => 'Finishing…',
     };
   }
 
