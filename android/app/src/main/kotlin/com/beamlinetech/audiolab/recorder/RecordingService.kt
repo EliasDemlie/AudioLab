@@ -1,4 +1,4 @@
-package com.example.voicerec.recorder
+package com.beamlinetech.audiolab.recorder
 
 import android.app.Service
 import android.content.Context
@@ -252,10 +252,10 @@ class RecordingService : Service() {
 
     companion object {
         private const val TAG = "RecordingService"
-        const val ACTION_START = "com.example.voicerec.action.START_RECORDING"
-        const val ACTION_PAUSE = "com.example.voicerec.action.PAUSE_RECORDING"
-        const val ACTION_RESUME = "com.example.voicerec.action.RESUME_RECORDING"
-        const val ACTION_STOP = "com.example.voicerec.action.STOP_RECORDING"
+        const val ACTION_START = "com.beamlinetech.audiolab.action.START_RECORDING"
+        const val ACTION_PAUSE = "com.beamlinetech.audiolab.action.PAUSE_RECORDING"
+        const val ACTION_RESUME = "com.beamlinetech.audiolab.action.RESUME_RECORDING"
+        const val ACTION_STOP = "com.beamlinetech.audiolab.action.STOP_RECORDING"
 
         /** Current state; lives as long as the process, so a reopened UI can read it. */
         @Volatile

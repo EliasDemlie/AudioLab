@@ -1,4 +1,4 @@
-package com.example.voicerec.recorder
+package com.beamlinetech.audiolab.recorder
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -7,8 +7,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import com.example.voicerec.MainActivity
-import com.example.voicerec.R
+import com.beamlinetech.audiolab.MainActivity
+import com.beamlinetech.audiolab.R
 
 /** Builds the ongoing "Recording" status notification; tapping it opens the app. */
 class RecordingNotification(private val context: Context) {
@@ -52,8 +52,8 @@ class RecordingNotification(private val context: Context) {
 
     private fun text(state: RecorderState): String = when {
         state.micSilenced -> "Microphone is in use by another app"
-        state.status == RecorderStatus.PAUSED -> "Open Voice Recorder to resume"
-        else -> "Tap to open Voice Recorder"
+        state.status == RecorderStatus.PAUSED -> "Open AudioLab to resume"
+        else -> "Tap to open AudioLab"
     }
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
