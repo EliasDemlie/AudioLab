@@ -251,7 +251,7 @@ class _RecordingSavedScreenState extends State<RecordingSavedScreen> {
               ),
             ),
             const SizedBox(height: 3),
-            Text('VoicePro', style: theme.textTheme.titleMedium),
+            Text('AudioLab', style: theme.textTheme.titleMedium),
           ],
         ),
         centerTitle: true,

@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:voicerec/main.dart';
 
 void main() {
-  const methods = MethodChannel('com.example.voicerec/recorder');
-  const events = MethodChannel('com.example.voicerec/recorder_state');
+  const methods = MethodChannel('com.beamlinetech.audiolab/recorder');
+  const events = MethodChannel('com.beamlinetech.audiolab/recorder_state');
 
   testWidgets('follows system appearance and switches themes on drawer pages', (
     tester,
@@ -57,11 +57,15 @@ void main() {
     );
     final appName = find.descendant(
       of: appBar,
-      matching: find.text('VoicePro'),
+      matching: find.text('AudioLab'),
     );
     final menu = find.byTooltip('Open navigation menu');
     expect(logo, findsOneWidget);
     expect(appName, findsOneWidget);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).title,
+      'AudioLab',
+    );
     expect(tester.getRect(logo).right, lessThan(tester.getRect(appName).left));
     expect(tester.getRect(appName).right, lessThan(tester.getRect(menu).left));
     expect(tester.getRect(menu).right, greaterThan(280));
@@ -74,6 +78,13 @@ void main() {
     );
     expect(find.text('Switch to light mode'), findsNothing);
     await openMenu();
+    expect(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('by beamlineTech'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.widgetWithText(ListTile, 'Switch to light mode'),
       findsOneWidget,
@@ -97,7 +108,7 @@ void main() {
     expect(appearance(), Brightness.light);
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
     expect(
-      find.descendant(of: appBar, matching: find.text('VoicePro')),
+      find.descendant(of: appBar, matching: find.text('AudioLab')),
       findsOneWidget,
     );
     await openMenu();
@@ -113,7 +124,7 @@ void main() {
     expect(appearance(), Brightness.dark);
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
     expect(
-      find.descendant(of: appBar, matching: find.text('VoicePro')),
+      find.descendant(of: appBar, matching: find.text('AudioLab')),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);

@@ -210,7 +210,7 @@ class _MainNavigationState extends State<MainNavigation> {
               const SizedBox(width: 10),
               const Flexible(
                 child: Text(
-                  'VoicePro',
+                  'AudioLab',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -254,12 +254,12 @@ class _MainNavigationState extends State<MainNavigation> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'VoicePro',
+                              'AudioLab',
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Voice recorder',
+                              'by beamlineTech',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: colors.onSurfaceVariant),
                             ),

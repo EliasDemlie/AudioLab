@@ -9,8 +9,10 @@ import '../models/recording_waveform.dart';
 
 /// Talks to the native `RecordingService` (Android) over platform channels.
 class RecorderService {
-  static const _methods = MethodChannel('com.example.voicerec/recorder');
-  static const _events = EventChannel('com.example.voicerec/recorder_state');
+  static const _methods = MethodChannel('com.beamlinetech.audiolab/recorder');
+  static const _events = EventChannel(
+    'com.beamlinetech.audiolab/recorder_state',
+  );
 
   /// Emits the current state right away, then every change.
   ///
