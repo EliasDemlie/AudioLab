@@ -1,6 +1,6 @@
-package com.example.voicerec
+package com.beamlinetech.audiolab
 
-import com.example.voicerec.recorder.RecorderChannel
+import com.beamlinetech.audiolab.recorder.RecorderChannel
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 

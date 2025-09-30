@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../utils/audio_effect_presets.dart';
+import 'audio_preset_selector.dart';
 import 'equalizer_dials.dart';
 
 class AudioEqualizerPanel extends StatelessWidget {
@@ -27,7 +27,9 @@ class AudioEqualizerPanel extends StatelessWidget {
             Text(
               'EQUALIZER',
               style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.1,
               ),
             ),
             const Spacer(),
@@ -47,20 +49,10 @@ class AudioEqualizerPanel extends StatelessWidget {
           valueListenable: gains,
           builder: (context, values, _) => ValueListenableBuilder<bool>(
             valueListenable: busy,
-            builder: (context, isBusy, _) => Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final preset in audioEffectPresets.entries)
-                  ChoiceChip(
-                    showCheckmark: false,
-                    label: Text(preset.key, maxLines: 1, softWrap: false),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    selected: audioEffectPresetFor(values) == preset.key,
-                    onSelected: isBusy ? null : (_) => onChanged(preset.value),
-                  ),
-              ],
+            builder: (context, isBusy, _) => AudioPresetSelector(
+              gains: values,
+              onSelected: isBusy ? null : onChanged,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
         ),

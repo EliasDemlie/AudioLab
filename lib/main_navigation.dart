@@ -8,6 +8,7 @@ import 'screens/recordings_tab.dart';
 import 'screens/recorder_tab.dart';
 import 'screens/recording_saved_screen.dart';
 import 'widgets/rename_recording_sheet.dart';
+import 'widgets/save_recording_sheet.dart';
 
 /// App shell. Menu destinations retain their state in the IndexedStack.
 class MainNavigation extends StatefulWidget {
@@ -25,17 +26,21 @@ class _MainNavigationState extends State<MainNavigation> {
   late final StreamSubscription<String> _errorSub;
   int _index = 0;
   bool _drawerOpen = false;
+  bool _saveSheetOpen = false;
+  bool _draftPromptScheduled = false;
 
   @override
   void initState() {
     super.initState();
     _errorSub = _controller.errors.listen(_showError);
+    _controller.draftRecordingsListenable.addListener(_queueDraftPrompt);
     unawaited(_controller.init());
   }
 
   @override
   void dispose() {
     _errorSub.cancel();
+    _controller.draftRecordingsListenable.removeListener(_queueDraftPrompt);
     _controller.dispose();
     super.dispose();
   }
@@ -47,7 +52,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 
   void _selectDestination(int index) {
-    _scaffoldKey.currentState?.closeDrawer();
+    _scaffoldKey.currentState?.closeEndDrawer();
     _goTo(index);
   }
 
@@ -58,28 +63,67 @@ class _MainNavigationState extends State<MainNavigation> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _stopAndSave() async {
-    final recording = await _controller.stopAndWait();
-    if (recording == null || !mounted) return;
-    final colors = Theme.of(context).colorScheme;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: colors.primary,
-          content: Row(
-            children: [
-              Icon(Icons.check_circle_outline, color: colors.onPrimary),
-              const SizedBox(width: 12),
-              Text(
-                'Recording saved',
-                style: TextStyle(color: colors.onPrimary),
-              ),
-            ],
-          ),
+  Future<void> _finishRecording() async {
+    await _controller.stopAndWait();
+    _queueDraftPrompt();
+  }
+
+  void _queueDraftPrompt() {
+    if (!mounted ||
+        _saveSheetOpen ||
+        _draftPromptScheduled ||
+        _controller.draftRecordingsListenable.value.isEmpty) {
+      return;
+    }
+    _draftPromptScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _draftPromptScheduled = false;
+      if (!mounted ||
+          _saveSheetOpen ||
+          _controller.draftRecordingsListenable.value.isEmpty ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      unawaited(_openDraft(_controller.draftRecordingsListenable.value.first));
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _openDraft(Recording recording) async {
+    _saveSheetOpen = true;
+    _controller.setRecorderTabVisible(false);
+    _scaffoldKey.currentState?.closeEndDrawer();
+    try {
+      final saved = await showModalBottomSheet<Recording>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: false,
+        isDismissible: false,
+        enableDrag: false,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        builder: (_) => SaveRecordingSheet(
+          recording: recording,
+          onSave: (title) => _controller.saveDraft(recording, title),
+          onDiscard: () => _controller.discardDraft(recording),
         ),
       );
+      if (saved != null && mounted) {
+        _goTo(1);
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Recording saved')));
+      }
+    } finally {
+      _saveSheetOpen = false;
+      if (mounted) {
+        _controller.setRecorderTabVisible(_index == 0);
+        _queueDraftPrompt();
+      }
+    }
   }
 
   Future<void> _openRecording(Recording recording) async {
@@ -94,7 +138,10 @@ class _MainNavigationState extends State<MainNavigation> {
         ),
       );
     } finally {
-      if (mounted) _controller.setRecorderTabVisible(_index == 0);
+      if (mounted) {
+        _controller.setRecorderTabVisible(_index == 0);
+        _queueDraftPrompt();
+      }
     }
   }
 
@@ -117,24 +164,28 @@ class _MainNavigationState extends State<MainNavigation> {
       ),
     );
     if (confirmed ?? false) await _controller.delete(recording);
+    _queueDraftPrompt();
   }
 
-  Future<void> _renameRecording(Recording recording) =>
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        builder: (_) => RenameRecordingSheet(
-          recording: recording,
-          onRename: (title) async {
-            await _controller.rename(recording, title);
-          },
-        ),
-      );
+  Future<void> _renameRecording(Recording recording) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => RenameRecordingSheet(
+        recording: recording,
+        onRename: (title) async {
+          await _controller.rename(recording, title);
+        },
+      ),
+    );
+    _queueDraftPrompt();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return PopScope<void>(
       canPop: _index == 0 || _drawerOpen,
       onPopInvokedWithResult: (didPop, _) {
@@ -142,32 +193,39 @@ class _MainNavigationState extends State<MainNavigation> {
       },
       child: Scaffold(
         key: _scaffoldKey,
-        onDrawerChanged: (open) => setState(() => _drawerOpen = open),
+        onEndDrawerChanged: (open) => setState(() => _drawerOpen = open),
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: 'Open navigation menu',
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            icon: const Icon(Icons.menu_rounded),
-          ),
-          title: Text(_index == 0 ? 'VoicePro' : 'Library'),
-          centerTitle: false,
-          actions: [
-            if (widget.onToggleTheme != null)
-              IconButton(
-                tooltip: Theme.of(context).brightness == Brightness.dark
-                    ? 'Switch to light mode'
-                    : 'Switch to dark mode',
-                onPressed: widget.onToggleTheme,
-                icon: Icon(
-                  Theme.of(context).brightness == Brightness.dark
-                      ? Icons.light_mode_outlined
-                      : Icons.dark_mode_outlined,
+          automaticallyImplyLeading: false,
+          title: Row(
+            children: [
+              Image.asset(
+                'play_store_assets/icon/logo_transparent.png',
+                width: 36,
+                height: 36,
+                fit: BoxFit.contain,
+                excludeFromSemantics: true,
+              ),
+              const SizedBox(width: 10),
+              const Flexible(
+                child: Text(
+                  'AudioLab',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+            ],
+          ),
+          centerTitle: false,
+          actions: [
+            IconButton(
+              tooltip: 'Open navigation menu',
+              onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+              icon: const Icon(Icons.menu_rounded),
+            ),
             const SizedBox(width: 8),
           ],
         ),
-        drawer: Drawer(
+        endDrawer: Drawer(
           width: MediaQuery.sizeOf(context).width < 360 ? 280 : 304,
           backgroundColor: colors.surfaceContainerLow,
           surfaceTintColor: Colors.transparent,
@@ -194,12 +252,12 @@ class _MainNavigationState extends State<MainNavigation> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'VoicePro',
+                              'AudioLab',
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Voice recorder',
+                              'by beamlineTech',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: colors.onSurfaceVariant),
                             ),
@@ -209,7 +267,16 @@ class _MainNavigationState extends State<MainNavigation> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 28),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  child: Divider(
+                    height: 0,
+                    color: colors.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                ),
                 for (final (index, label, icon) in [
                   (0, 'Record', Icons.mic_none_rounded),
                   (1, 'Library', Icons.library_music_outlined),
@@ -219,6 +286,16 @@ class _MainNavigationState extends State<MainNavigation> {
                     child: ListTile(
                       leading: Icon(icon),
                       title: Text(label),
+                      iconColor: colors.onSurfaceVariant,
+                      titleTextStyle: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(
+                            color: _index == index
+                                ? colors.primary
+                                : colors.onSurfaceVariant,
+                            fontWeight: _index == index
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
                       selected: _index == index,
                       selectedColor: colors.primary,
                       selectedTileColor: colors.primary.withValues(alpha: 0.1),
@@ -228,6 +305,37 @@ class _MainNavigationState extends State<MainNavigation> {
                       onTap: () => _selectDestination(index),
                     ),
                   ),
+                if (widget.onToggleTheme != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Divider(
+                      height: 0,
+                      color: colors.outlineVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      dark
+                          ? Icons.light_mode_outlined
+                          : Icons.dark_mode_outlined,
+                    ),
+                    title: Text(
+                      dark ? 'Switch to light mode' : 'Switch to dark mode',
+                    ),
+                    iconColor: colors.onSurfaceVariant,
+                    textColor: colors.onSurfaceVariant,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    onTap: () {
+                      _scaffoldKey.currentState?.closeEndDrawer();
+                      widget.onToggleTheme?.call();
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -236,7 +344,7 @@ class _MainNavigationState extends State<MainNavigation> {
           child: IndexedStack(
             index: _index,
             children: [
-              RecorderTab(controller: _controller, onStop: _stopAndSave),
+              RecorderTab(controller: _controller, onStop: _finishRecording),
               RecordingsTab(
                 controller: _controller,
                 onOpen: _openRecording,

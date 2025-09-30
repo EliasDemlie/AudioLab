@@ -1,4 +1,4 @@
-package com.example.voicerec.recorder
+package com.beamlinetech.audiolab.recorder
 
 import android.Manifest
 import android.app.Activity
@@ -17,7 +17,8 @@ import java.io.File
  * Bridge between Flutter and [RecordingService].
  *
  * - Method channel: `startRecording`, `pauseRecording`, `resumeRecording`,
- *   `stopRecording`, `getRecordingState`, `listRecordings`, `deleteRecording`.
+ *   `stopRecording`, `getRecordingState`, `listRecordings`, `listDraftRecordings`,
+ *   `saveRecording`, `discardDraftRecording`, `deleteRecording`.
  * - Event channel: streams [RecorderState] maps, starting with the current state.
  *
  * Only the UI depends on this class; the service records without it.
@@ -97,6 +98,9 @@ class RecorderChannel(
             "getRecordingState" -> result.success(RecordingService.state.toMap())
             "listRecordings" -> listRecordings(result)
             "listLibraryRecordings" -> listLibraryRecordings(result)
+            "listDraftRecordings" -> listDraftRecordings(result)
+            "saveRecording" -> saveRecording(call, result)
+            "discardDraftRecording" -> discardDraftRecording(call, result)
             "updateRecordingPath" -> updateRecordingPath(call, result)
             "trimRecording" -> trimRecording(call, result)
             "deleteRecording" -> deleteRecording(call.argument<String>("path"), result)
@@ -152,6 +156,71 @@ class RecorderChannel(
 
     private fun listLibraryRecordings(result: MethodChannel.Result) {
         loadLibrary(result, includeDeleted = true, includeUnavailable = true)
+    }
+
+    private fun listDraftRecordings(result: MethodChannel.Result) {
+        val context = activity.applicationContext
+        RecordingFiles.io.execute {
+            try {
+                val state = RecordingService.state
+                val activePath = if (state.isActive) state.filePath else null
+                val drafts = RecordingFiles.listDrafts(context, activePath)
+                activity.runOnUiThread { result.success(drafts) }
+            } catch (error: Exception) {
+                activity.runOnUiThread { result.error("DRAFT_LIST_FAILED", error.message, null) }
+            }
+        }
+    }
+
+    private fun saveRecording(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        val title = call.argument<String>("title")
+        if (path == null || title == null) {
+            result.error("BAD_ARGS", "Missing recording draft or file name.", null)
+            return
+        }
+        val context = activity.applicationContext
+        RecordingFiles.io.execute {
+            try {
+                checkDraftIsInactive(path)
+                val saved = RecordingFiles.saveDraft(
+                    RecordingFiles.draftsDir(context),
+                    RecordingFiles.dir(context),
+                    path,
+                    title,
+                ) { file, safeTitle ->
+                    libraryDatabase.registerSavedDraft(path, file.absolutePath, safeTitle)
+                }
+                activity.runOnUiThread { result.success(saved) }
+            } catch (error: Exception) {
+                activity.runOnUiThread { result.error("SAVE_FAILED", error.message, null) }
+            }
+        }
+    }
+
+    private fun discardDraftRecording(call: MethodCall, result: MethodChannel.Result) {
+        val path = call.argument<String>("path")
+        if (path == null) {
+            result.error("BAD_ARGS", "Missing recording draft.", null)
+            return
+        }
+        val context = activity.applicationContext
+        RecordingFiles.io.execute {
+            try {
+                checkDraftIsInactive(path)
+                RecordingFiles.discardDraft(RecordingFiles.draftsDir(context), path)
+                activity.runOnUiThread { result.success(null) }
+            } catch (error: Exception) {
+                activity.runOnUiThread { result.error("DISCARD_FAILED", error.message, null) }
+            }
+        }
+    }
+
+    private fun checkDraftIsInactive(path: String) {
+        val state = RecordingService.state
+        check(!state.isActive || !RecordingFiles.isActiveDraft(path, state.filePath)) {
+            "Stop the recording before saving or discarding it."
+        }
     }
 
     private fun loadLibrary(
@@ -398,8 +467,8 @@ class RecorderChannel(
         activity.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
     companion object {
-        const val METHOD_CHANNEL = "com.example.voicerec/recorder"
-        const val EVENT_CHANNEL = "com.example.voicerec/recorder_state"
+        const val METHOD_CHANNEL = "com.beamlinetech.audiolab/recorder"
+        const val EVENT_CHANNEL = "com.beamlinetech.audiolab/recorder_state"
         private const val PERMISSION_REQUEST_CODE = 4201
     }
 }

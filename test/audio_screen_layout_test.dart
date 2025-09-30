@@ -10,6 +10,7 @@ import 'package:voicerec/screens/audio_editor_screen.dart';
 import 'package:voicerec/screens/recording_saved_screen.dart';
 import 'package:voicerec/services/recorder_service.dart';
 import 'package:voicerec/widgets/audio_crop_waveform.dart';
+import 'package:voicerec/widgets/audio_preset_selector.dart';
 import 'package:voicerec/widgets/circular_eq_dial.dart';
 
 void main() {
@@ -147,6 +148,26 @@ Future<void> _exerciseEffectToggle(
     inInclusiveRange(0, 52),
     reason: 'Effects should appear directly below the playback controls',
   );
+  final presetTop = tester
+      .getTopLeft(find.widgetWithText(ChoiceChip, 'Flat'))
+      .dy;
+  final selectorBounds = tester.getRect(find.byType(AudioPresetSelector));
+  for (final preset in ['Flat', 'Voice', 'Warm', 'Bright']) {
+    final chip = find.widgetWithText(ChoiceChip, preset);
+    final chipBounds = tester.getRect(chip);
+    expect(
+      chipBounds.top,
+      closeTo(presetTop, 1),
+      reason: 'Presets should stay in one row on narrow screens',
+    );
+    expect(chipBounds.left, greaterThanOrEqualTo(selectorBounds.left - 0.1));
+    expect(chipBounds.right, lessThanOrEqualTo(selectorBounds.right + 0.1));
+    expect(
+      chip.hitTestable(),
+      findsOneWidget,
+      reason: '$preset must be reachable without scrolling',
+    );
+  }
   _expectDialSpacing(tester);
   _expectUpperControlsUnchanged(tester, before, editing: editing);
 

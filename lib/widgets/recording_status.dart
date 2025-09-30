@@ -24,13 +24,21 @@ class RecordingStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final statusColor = isStopPending
+        ? colors.secondary
+        : switch (status) {
+            RecorderStatus.idle => colors.onSurfaceVariant,
+            RecorderStatus.recording => colors.primary,
+            RecorderStatus.paused => colors.tertiary,
+            RecorderStatus.stopping => colors.secondary,
+          };
     final label = isStopPending
-        ? 'Saving recording'
+        ? 'Finishing recording'
         : switch (status) {
             RecorderStatus.idle => 'Ready to record',
             RecorderStatus.recording => 'Recording',
             RecorderStatus.paused => 'Recording paused',
-            RecorderStatus.stopping => 'Saving recording',
+            RecorderStatus.stopping => 'Finishing recording',
           };
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -44,9 +52,7 @@ class RecordingStatus extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: status == RecorderStatus.recording
-                      ? colors.primary
-                      : colors.onSurfaceVariant.withValues(alpha: 0.6),
+                  color: statusColor,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -60,7 +66,7 @@ class RecordingStatus extends StatelessWidget {
                   style: theme.textTheme.labelMedium?.copyWith(
                     fontSize: 12,
                     height: 1.25,
-                    color: colors.onSurfaceVariant,
+                    color: statusColor,
                     letterSpacing: 0.6,
                   ),
                 ),
@@ -78,7 +84,8 @@ class RecordingStatus extends StatelessWidget {
               fontSize: compact ? 36 : 44,
               height: 1.15,
               color: colors.onSurface,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.6,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),

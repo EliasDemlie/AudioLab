@@ -7,7 +7,7 @@ import 'package:voicerec/services/recorder_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('com.example.voicerec/recorder');
+  const channel = MethodChannel('com.beamlinetech.audiolab/recorder');
   final calls = <MethodCall>[];
   var failCatalogUpdate = false;
 

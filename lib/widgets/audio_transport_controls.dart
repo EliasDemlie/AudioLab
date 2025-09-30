@@ -47,7 +47,9 @@ class AudioTransportControls extends StatelessWidget {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: colors.primary.withValues(alpha: 0.18)),
+            border: Border.all(
+              color: colors.primary.withValues(alpha: playing ? 0.36 : 0.18),
+            ),
             boxShadow: [
               BoxShadow(
                 color: colors.primary.withValues(alpha: playing ? 0.2 : 0.1),
@@ -138,10 +140,12 @@ class _SkipButton extends StatelessWidget {
         onPressed: onPressed,
         icon: Icon(icon, size: 19),
         style: IconButton.styleFrom(
-          backgroundColor: colors.onSurface.withValues(alpha: 0.05),
-          foregroundColor: colors.onSurface,
+          backgroundColor: colors.primary.withValues(alpha: 0.08),
+          foregroundColor: colors.primary,
+          disabledBackgroundColor: colors.primary.withValues(alpha: 0.04),
+          disabledForegroundColor: colors.onSurface.withValues(alpha: 0.32),
           shape: const CircleBorder(),
-          side: BorderSide(color: colors.onSurface.withValues(alpha: 0.08)),
+          side: BorderSide(color: colors.primary.withValues(alpha: 0.18)),
         ),
       ),
     );

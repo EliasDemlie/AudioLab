@@ -1,4 +1,4 @@
-package com.example.voicerec.recorder
+package com.beamlinetech.audiolab.recorder
 
 enum class RecorderStatus(val wireName: String) {
     IDLE("idle"),

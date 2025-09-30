@@ -1,4 +1,4 @@
-package com.example.voicerec.recorder
+package com.beamlinetech.audiolab.recorder
 
 import android.media.AudioFormat
 import android.media.MediaCodec

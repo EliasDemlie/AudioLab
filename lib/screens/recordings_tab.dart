@@ -30,7 +30,11 @@ class RecordingsTab extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
           child: Text(
             'Your recordings',
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
           ),
         ),
         Expanded(

@@ -31,7 +31,7 @@ class _VoiceRecAppState extends State<VoiceRecApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Voice Recorder',
+      title: 'AudioLab',
       debugShowCheckedModeBanner: false,
       theme: VoiceRecTheme.light,
       darkTheme: VoiceRecTheme.dark,

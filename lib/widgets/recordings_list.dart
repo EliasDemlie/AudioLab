@@ -54,10 +54,19 @@ class RecordingsList extends StatelessWidget {
             onTap: () => onOpen(recording),
             contentPadding: const EdgeInsets.only(left: 16, right: 4),
             minVerticalPadding: 10,
-            leading: Icon(
-              Icons.music_note_rounded,
-              color: colors.primary,
-              size: 27,
+            leading: Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.music_note_rounded,
+                color: colors.onPrimaryContainer,
+                size: 24,
+              ),
             ),
             title: Row(
               children: [

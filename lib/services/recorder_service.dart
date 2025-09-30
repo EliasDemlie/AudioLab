@@ -9,8 +9,10 @@ import '../models/recording_waveform.dart';
 
 /// Talks to the native `RecordingService` (Android) over platform channels.
 class RecorderService {
-  static const _methods = MethodChannel('com.example.voicerec/recorder');
-  static const _events = EventChannel('com.example.voicerec/recorder_state');
+  static const _methods = MethodChannel('com.beamlinetech.audiolab/recorder');
+  static const _events = EventChannel(
+    'com.beamlinetech.audiolab/recorder_state',
+  );
 
   /// Emits the current state right away, then every change.
   ///
@@ -38,6 +40,29 @@ class RecorderService {
   Future<void> resume() => _methods.invokeMethod<void>('resumeRecording');
 
   Future<void> stop() => _methods.invokeMethod<void>('stopRecording');
+
+  /// Finished captures awaiting an explicit name and Save action.
+  Future<List<Recording>> loadDraftRecordings() async {
+    final list = await _methods.invokeListMethod<Map>('listDraftRecordings');
+    return [...?list?.map(Recording.fromMap)];
+  }
+
+  Future<Recording> saveRecording(Recording draft, String title) async {
+    final map = await _methods.invokeMapMethod<String, dynamic>(
+      'saveRecording',
+      {'path': draft.file.path, 'title': title},
+    );
+    if (map == null) {
+      throw PlatformException(
+        code: 'SAVE_FAILED',
+        message: 'Could not save this recording. Please try again.',
+      );
+    }
+    return Recording.fromMap(map);
+  }
+
+  Future<void> discardDraftRecording(Recording draft) => _methods
+      .invokeMethod<void>('discardDraftRecording', {'path': draft.file.path});
 
   Future<Recording> rename(Recording recording, String title) async {
     final cleanedTitle = title

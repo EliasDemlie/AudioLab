@@ -102,7 +102,9 @@ class _RenameRecordingSheetState extends State<RenameRecordingSheet> {
                 suffixText: '.${widget.recording.format.toLowerCase()}',
                 errorText: _error,
                 errorMaxLines: 3,
-                border: const OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               onChanged: (_) {
                 if (_error != null) setState(() => _error = null);
