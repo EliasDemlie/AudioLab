@@ -198,14 +198,12 @@ class _MainNavigationState extends State<MainNavigation> {
           automaticallyImplyLeading: false,
           title: Row(
             children: [
-              Container(
+              Image.asset(
+                'play_store_assets/icon/logo_transparent.png',
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.mic_rounded, color: colors.primary, size: 22),
+                fit: BoxFit.contain,
+                excludeFromSemantics: true,
               ),
               const SizedBox(width: 10),
               const Flexible(

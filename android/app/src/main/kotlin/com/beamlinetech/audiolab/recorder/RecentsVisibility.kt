@@ -6,8 +6,7 @@ import android.util.Log
 
 /**
  * Hides the app's card from Recents while recording.
- *
-
+ */
 object RecentsVisibility {
     private const val TAG = "RecentsVisibility"
 

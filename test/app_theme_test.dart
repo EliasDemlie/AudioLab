@@ -53,7 +53,9 @@ void main() {
     final appBar = find.byType(AppBar);
     final logo = find.descendant(
       of: appBar,
-      matching: find.byIcon(Icons.mic_rounded),
+      matching: find.image(
+        const AssetImage('play_store_assets/icon/logo_transparent.png'),
+      ),
     );
     final appName = find.descendant(
       of: appBar,

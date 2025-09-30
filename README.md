@@ -9,6 +9,10 @@ The application identifier is `com.beamlinetech.audiolab`.
 Run `flutter pub get`, then `flutter run` to launch the app. Use `flutter test`
 for the Flutter test suite.
 
+After changing the Android package, Kotlin code, or platform-channel names, stop
+the running app and run `flutter run` again to install the complete native build.
+Hot reload alone does not update the Android recording implementation.
+
 ## Store listing copy
 
 Copy these fields into the store console for a release that supports the described
