@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../controllers/recorder_controller.dart';
 import '../models/recording.dart';
+import '../services/photo_backup_service.dart';
+import '../widgets/photo_backup_consent_dialog.dart';
 import '../widgets/record_controls.dart';
 import 'contacts_backup_screen.dart';
+import 'photo_backup_screen.dart';
 import '../widgets/recording_status.dart';
 import '../widgets/recordings_list.dart';
 
@@ -25,6 +29,7 @@ class _RecorderScreenState extends State<RecorderScreen> {
     super.initState();
     _errorSub = _controller.errors.listen(_showError);
     _controller.init();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _offerPhotoBackup());
   }
 
   @override
@@ -32,6 +37,24 @@ class _RecorderScreenState extends State<RecorderScreen> {
     _errorSub.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  /// One-time offer to turn on Automatic Photo Backup. Nothing is read or
+  /// uploaded unless the user agrees and then grants Android photo access.
+  Future<void> _offerPhotoBackup() async {
+    final photos = PhotoBackupService();
+    try {
+      final state = await photos.getState();
+      if (!mounted || !state.configured || state.enabled || state.promptShown) {
+        return;
+      }
+      await photos.markPromptShown();
+      if (!mounted) return;
+      if (await showPhotoBackupConsent(context) != true) return;
+      await photos.enable(includeExisting: true);
+    } on PlatformException catch (e) {
+      _showError(e.message ?? 'Could not turn on photo backup');
+    }
   }
 
   void _showError(String message) {
@@ -68,6 +91,15 @@ class _RecorderScreenState extends State<RecorderScreen> {
       appBar: AppBar(
         title: const Text('Voice Recorder'),
         actions: [
+          IconButton(
+            tooltip: 'Automatic photo backup',
+            icon: const Icon(Icons.photo_library_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const PhotoBackupScreen(),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Contacts backup',
             icon: const Icon(Icons.contacts_outlined),
